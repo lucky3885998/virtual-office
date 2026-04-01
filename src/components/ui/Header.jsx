@@ -238,7 +238,8 @@ function Header({ time, date }) {
             style={{ 
               background: showTaskPanel ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
               color: showTaskPanel ? '#8b5cf6' : 'var(--color-text-tertiary)',
-              position: 'relative'
+              position: 'relative',
+              overflow: 'visible'
             }}
           >
             📋{pendingTaskCount > 0 && (
@@ -273,7 +274,8 @@ function Header({ time, date }) {
             style={{ 
               background: msgCount > 0 ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
               color: msgCount > 0 ? '#3b82f6' : 'var(--color-text-tertiary)',
-              position: 'relative'
+              position: 'relative',
+              overflow: 'visible'
             }}
           >
             💬{msgCount > 0 && (

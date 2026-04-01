@@ -1,9 +1,28 @@
-import React, { useRef, useMemo, useState } from 'react'
+import React, { useRef, useMemo, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Text, Billboard } from '@react-three/drei'
 import * as THREE from 'three'
 import useOfficeStore from '../../stores/officeStore'
 import { departments } from '../../data/members'
+
+// 创建径向渐变贴图（白色，color属性会染色）
+function createRadialGradientTexture() {
+  const canvas = document.createElement('canvas')
+  canvas.width = 128
+  canvas.height = 128
+  const ctx = canvas.getContext('2d')
+  const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64)
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 1)')
+  gradient.addColorStop(0.2, 'rgba(255, 255, 255, 0.8)')
+  gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.4)')
+  gradient.addColorStop(0.8, 'rgba(255, 255, 255, 0.1)')
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0)')
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, 128, 128)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.needsUpdate = true
+  return texture
+}
 
 // 粒子系统
 // 透视引导线
@@ -616,17 +635,47 @@ const connections = [
   { from: 'IT', to: 'OPR' },
 ]
 
-function Person({ position, name, color, emissive, memberId, onClick, isSelected, taskProgress }) {
+function Person({ position, name, color, emissive, memberId, onClick, isSelected, taskProgress, memberTitle, memberStatus }) {
   const groupRef = useRef()
   const bodyRef = useRef()
   const headRef = useRef()
   const glowRef = useRef()
+  const leftShoulderRef = useRef()
+  const leftForearmRef = useRef()
+  const leftHandRef = useRef()
+  const rightShoulderRef = useRef()
+  const rightForearmRef = useRef()
+  const rightHandRef = useRef()
+  const leftLegRef = useRef()
+  const leftFootRef = useRef()
+  const leftFootPadRef = useRef()
+  const rightLegRef = useRef()
+  const rightFootRef = useRef()
+  const rightFootPadRef = useRef()
+  const leftEyeRef = useRef()
+  const rightEyeRef = useRef()
+  const leftPupilRef = useRef()
+  const rightPupilRef = useRef()
+  const mouthRef = useRef()
   const [hovered, setHovered] = useState(false)
   const { size } = useThree()
   
   const isNarrow = size.width < 600
+  const responsiveScale = isNarrow ? 0.75 : 1
   const accessory = getRoleAccessory(memberId)
   const hasActiveTask = taskProgress !== null && taskProgress !== undefined && taskProgress < 100
+  
+  // 径向渐变贴图
+  const gradientTexture = useMemo(() => createRadialGradientTexture(), [])
+  
+  // 状态图标和颜色
+  const statusInfo = {
+    working: { icon: '🟢', label: '工作中', textColor: '#22c55e', emoji: '😊' },
+    idle: { icon: '🟡', label: '待命', textColor: '#eab308', emoji: '😐' },
+    busy: { icon: '🔴', label: '忙碌', textColor: '#ef4444', emoji: '😓' },
+    offline: { icon: '⚫', label: '离线', textColor: '#6b7280', emoji: '😶' }
+  }
+  const currentStatus = statusInfo[memberStatus] || statusInfo.offline
   
   useFrame((state) => {
     if (!groupRef.current) return
@@ -634,12 +683,15 @@ function Person({ position, name, color, emissive, memberId, onClick, isSelected
     const t = state.clock.elapsedTime
     const breathe = Math.sin(t * 1.5 + position[0] * 0.5) * 0.012
     const float = Math.sin(t * 0.8 + position[1] * 0.3) * 0.03
-    const targetScale = isSelected ? 1.2 : hovered ? 1.12 : 1.0
+    
+    // 缩放效果 - 靠近人物放大至1.30倍
+    const targetScale = isSelected || hovered ? 1.30 : 1.0
     const targetEmissive = isSelected ? 0.7 : hovered ? 0.55 : 0.35
     
     const currentScale = groupRef.current.scale.x
     const newScale = currentScale + (targetScale - currentScale) * 0.12
-    groupRef.current.scale.set(newScale, 1 + breathe, newScale)
+    // 整体等比缩放（X/Y/Z同步）
+    groupRef.current.scale.set(newScale * responsiveScale, newScale + breathe, newScale * responsiveScale)
     groupRef.current.position.y = position[1] + float
     
     if (bodyRef.current) {
@@ -649,9 +701,320 @@ function Person({ position, name, color, emissive, memberId, onClick, isSelected
       headRef.current.material.emissiveIntensity += (targetEmissive - headRef.current.material.emissiveIntensity) * 0.1
     }
     
-    if (glowRef.current) {
-      glowRef.current.material.opacity = isSelected ? 0.15 + Math.sin(t * 3) * 0.05 : hovered ? 0.08 : 0
+    // 脚底渐变光环动画 - Sprite方式
+    const glowOpacity = isSelected ? 0.6 + Math.sin(t * 2) * 0.2 : hovered ? 0.35 + Math.sin(t * 3) * 0.1 : 0
+    if (glowRef.current && glowRef.current.material) {
+      glowRef.current.material.opacity = glowOpacity
+      if (isSelected || hovered) {
+        glowRef.current.scale.setScalar(1.3 + Math.sin(t * 2) * 0.1)
+      } else {
+        glowRef.current.scale.setScalar(1.3)
+      }
     }
+    
+    // ==================== 全身动作系统（真实直观版）====================
+    const T = t // 时间
+    
+    // 工作中：专注认真，稳定高效
+    // 特征：身体微倾、头部前探、手臂弯曲打字、腿部稳定承重
+    if (memberStatus === 'working') {
+      // 身体：自然前倾+明显呼吸起伏
+      if (bodyRef.current) {
+        bodyRef.current.rotation.z = 0.08 + Math.sin(T * 0.6) * 0.04   // 前倾+呼吸起伏更强
+        bodyRef.current.position.y = 0.5 + Math.sin(T * 0.5) * 0.02   // 呼吸起伏更强
+      }
+      
+      // 头：前探看屏幕+明显思考偏头
+      if (headRef.current) {
+        headRef.current.rotation.x = 0.2 + Math.sin(T * 0.4) * 0.08   // 低头看屏幕
+        headRef.current.rotation.y = Math.sin(T * 0.35) * 0.2         // 明显偏头思考
+        headRef.current.position.y = 1.05 + Math.sin(T * 0.5) * 0.02  // 上下点头
+      }
+      
+      // 眼睛：专注凝视+自然眨眼
+      if (leftEyeRef.current) {
+        leftEyeRef.current.visible = true
+        leftEyeRef.current.scale.set(1, 1 + Math.sin(T * 0.4) * 0.35, 1)    // 眨眼幅度更大
+        leftEyeRef.current.position.x = -0.065 + Math.sin(T * 0.5) * 0.025  // 眼珠微动
+      }
+      if (rightEyeRef.current) {
+        rightEyeRef.current.visible = true
+        rightEyeRef.current.scale.set(1, 1 + Math.sin(T * 0.4 + 0.25) * 0.35, 1)
+        rightEyeRef.current.position.x = 0.065 + Math.sin(T * 0.5 + 0.5) * 0.025
+      }
+      if (leftPupilRef.current) {
+        leftPupilRef.current.visible = true
+        leftPupilRef.current.scale.set(1, 1, 1)
+      }
+      if (rightPupilRef.current) {
+        rightPupilRef.current.visible = true
+        rightPupilRef.current.scale.set(1, 1, 1)
+      }
+      
+      // 嘴：微闭+明显微张（轻声自语或思考）
+      if (mouthRef.current) {
+        mouthRef.current.visible = true
+        mouthRef.current.scale.set(1, 0.6 + Math.sin(T * 0.4) * 0.5, 1)  // 明显开合
+      }
+      
+      // 左手：弯曲放在键盘上+明显移动
+      if (leftShoulderRef.current) {
+        leftShoulderRef.current.rotation.z = 0.3 + Math.sin(T * 0.7) * 0.08   // 肩膀明显微调
+        leftShoulderRef.current.rotation.x = -0.1 + Math.sin(T * 0.5) * 0.05
+      }
+      if (leftForearmRef.current) {
+        leftForearmRef.current.rotation.x = 0.2 + Math.sin(T * 0.8) * 0.18   // 手腕明显摆动
+      }
+      if (leftHandRef.current) {
+        leftHandRef.current.position.set(-0.28 + Math.sin(T * 0.9) * 0.06, 0.22 + Math.sin(T * 0.7) * 0.08, 0.45)
+      }
+      
+      // 右手：弯曲放在键盘上+与左手错开
+      if (rightShoulderRef.current) {
+        rightShoulderRef.current.rotation.z = -0.3 + Math.sin(T * 0.7 + 0.5) * 0.08
+        rightShoulderRef.current.rotation.x = -0.1 + Math.sin(T * 0.5 + 0.4) * 0.05
+      }
+      if (rightForearmRef.current) {
+        rightForearmRef.current.rotation.x = 0.2 + Math.sin(T * 0.8 + 0.4) * 0.18
+      }
+      if (rightHandRef.current) {
+        rightHandRef.current.position.set(0.28 + Math.sin(T * 0.9 + 0.5) * 0.06, 0.22 + Math.sin(T * 0.7 + 0.4) * 0.08, 0.45)
+      }
+      
+      // 脚：稳定承重+明显重心转移
+      if (leftLegRef.current) {
+        leftLegRef.current.rotation.x = Math.sin(T * 0.4) * 0.05
+        leftLegRef.current.position.y = 0.2 + Math.sin(T * 0.5) * 0.02
+      }
+      if (rightLegRef.current) {
+        rightLegRef.current.rotation.x = Math.sin(T * 0.4 + 0.7) * 0.05
+        rightLegRef.current.position.y = 0.2 + Math.sin(T * 0.5 + 0.7) * 0.02
+      }
+      // 脚掌：随重心微调
+      if (leftFootPadRef.current) {
+        leftFootPadRef.current.position.y = 0.04 + Math.sin(T * 0.6) * 0.015
+      }
+      if (rightFootPadRef.current) {
+        rightFootPadRef.current.position.y = 0.04 + Math.sin(T * 0.6 + 0.6) * 0.015
+      }
+    }
+    
+    // 忙碌：紧张工作状态，频繁操作键盘
+    // 特征：身体前倾紧绷、手臂急促敲击、头部快速微动、脚尖轻敲地面
+    if (memberStatus === 'busy') {
+      const B = t // busy专用时间变量，更快更急促
+      
+      // 身体：紧绷前倾+微微晃动（压力感）
+      if (bodyRef.current) {
+        bodyRef.current.rotation.z = 0.08 + Math.sin(B * 3) * 0.015  // 前倾+小幅晃动
+        bodyRef.current.position.y = 0.5 + Math.sin(B * 4) * 0.005   // 身体轻微起伏
+      }
+      
+      // 头：快速小幅度左右微调（不断切换注意）
+      if (headRef.current) {
+        headRef.current.rotation.y = Math.sin(B * 4) * 0.2      // 快速小幅摇头
+        headRef.current.rotation.x = 0.15 + Math.sin(B * 3) * 0.04  // 低头盯屏幕
+        headRef.current.position.y = 1.05 + Math.sin(B * 5) * 0.008  // 轻微上下点头
+      }
+      
+      // 眼睛：瞪大专注+快速轻微转动
+      if (leftEyeRef.current) {
+        leftEyeRef.current.visible = true
+        leftEyeRef.current.scale.set(1.1, 1.2 + Math.sin(B * 4) * 0.1, 1)
+        leftEyeRef.current.position.x = -0.065 + Math.sin(B * 5) * 0.008  // 眼珠微动
+      }
+      if (rightEyeRef.current) {
+        rightEyeRef.current.visible = true
+        rightEyeRef.current.scale.set(1.1, 1.2 + Math.sin(B * 4 + 0.2) * 0.1, 1)
+        rightEyeRef.current.position.x = 0.065 + Math.sin(B * 5 + 0.3) * 0.008
+      }
+      if (leftPupilRef.current) {
+        leftPupilRef.current.visible = true
+        leftPupilRef.current.scale.set(0.9, 0.9, 1)  // 瞳孔略收缩（专注）
+      }
+      if (rightPupilRef.current) {
+        rightPupilRef.current.visible = true
+        rightPupilRef.current.scale.set(0.9, 0.9, 1)
+      }
+      
+      // 嘴：紧闭或微微张开（专注屏息）
+      if (mouthRef.current) {
+        mouthRef.current.visible = true
+        mouthRef.current.scale.set(0.9, 0.7 + Math.sin(B * 4) * 0.15, 1)  // 抿嘴+微张
+      }
+      
+      // 左手：敲击键盘动作（急促上下）
+      if (leftShoulderRef.current) {
+        leftShoulderRef.current.rotation.z = 0.35 + Math.sin(B * 6) * 0.12   // 肩膀微抬
+        leftShoulderRef.current.rotation.x = -0.15 + Math.sin(B * 8) * 0.06  // 手臂微抖
+      }
+      if (leftForearmRef.current) {
+        leftForearmRef.current.rotation.x = 0.15 + Math.sin(B * 8) * 0.25  // 前臂急促上下
+      }
+      if (leftHandRef.current) {
+        leftHandRef.current.position.set(-0.28, 0.2 + Math.sin(B * 10) * 0.08, 0.45)  // 手腕敲击
+      }
+      
+      // 右手：敲击键盘动作（与左手错开）
+      if (rightShoulderRef.current) {
+        rightShoulderRef.current.rotation.z = -0.35 + Math.sin(B * 6 + 0.5) * 0.12
+        rightShoulderRef.current.rotation.x = -0.15 + Math.sin(B * 8 + 0.3) * 0.06
+      }
+      if (rightForearmRef.current) {
+        rightForearmRef.current.rotation.x = 0.15 + Math.sin(B * 8 + 0.4) * 0.25
+      }
+      if (rightHandRef.current) {
+        rightHandRef.current.position.set(0.28, 0.2 + Math.sin(B * 10 + 0.5) * 0.08, 0.45)
+      }
+      
+      // 脚：脚尖轻敲地面（焦虑感）
+      if (leftLegRef.current) {
+        leftLegRef.current.rotation.x = Math.sin(B * 5) * 0.06
+        leftLegRef.current.position.y = 0.2 + Math.abs(Math.sin(B * 5)) * 0.02
+      }
+      if (rightLegRef.current) {
+        rightLegRef.current.rotation.x = -Math.sin(B * 5 + Math.PI) * 0.06
+        rightLegRef.current.position.y = 0.2 + Math.abs(Math.sin(B * 5 + Math.PI)) * 0.02
+      }
+      // 脚掌：轻敲节奏
+      if (leftFootPadRef.current) {
+        leftFootPadRef.current.position.y = 0.04 + Math.abs(Math.sin(B * 5)) * 0.015
+      }
+      if (rightFootPadRef.current) {
+        rightFootPadRef.current.position.y = 0.04 + Math.abs(Math.sin(B * 5 + Math.PI)) * 0.015
+      }
+    }
+    
+    // 待命：休息放松，手自然下垂
+    if (memberStatus === 'idle') {
+      // 身体：直立放松+呼吸起伏
+      if (bodyRef.current) {
+        bodyRef.current.rotation.z = Math.sin(T * 0.4) * 0.01
+        bodyRef.current.position.y = 0.5 + Math.sin(T * 0.5) * 0.005
+      }
+      // 头：向上看天/远方+缓慢转动
+      if (headRef.current) {
+        headRef.current.rotation.x = -0.15 + Math.sin(T * 0.3) * 0.02
+        headRef.current.rotation.y = Math.sin(T * 0.5) * 0.1
+      }
+      // 眼：眯眼放松+缓慢眨眼
+      if (leftEyeRef.current) {
+        leftEyeRef.current.visible = true
+        leftEyeRef.current.scale.set(0.9, 0.6 + Math.sin(T * 0.2) * 0.1, 1)
+      }
+      if (rightEyeRef.current) {
+        rightEyeRef.current.visible = true
+        rightEyeRef.current.scale.set(0.9, 0.6 + Math.sin(T * 0.2 + 0.3) * 0.1, 1)
+      }
+      if (leftPupilRef.current) {
+        leftPupilRef.current.visible = true
+        leftPupilRef.current.scale.set(1, 1, 1)
+      }
+      if (rightPupilRef.current) {
+        rightPupilRef.current.visible = true
+        rightPupilRef.current.scale.set(1, 1, 1)
+      }
+      // 嘴：微微张开（舒适）+缓慢呼吸
+      if (mouthRef.current) {
+        mouthRef.current.visible = true
+        mouthRef.current.scale.set(1, 1.2 + Math.sin(T * 0.4) * 0.1, 1)
+      }
+      // 左手：自然下垂在身体两侧+缓慢摆动
+      if (leftShoulderRef.current) {
+        leftShoulderRef.current.rotation.z = 0.15 + Math.sin(T * 0.3) * 0.02
+        leftShoulderRef.current.rotation.x = 0.2 + Math.sin(T * 0.25) * 0.01
+      }
+      if (leftForearmRef.current) {
+        leftForearmRef.current.rotation.x = 0.3 + Math.sin(T * 0.35) * 0.02
+      }
+      if (leftHandRef.current) {
+        leftHandRef.current.position.set(-0.25 + Math.sin(T * 0.25) * 0.01, -0.15 + Math.sin(T * 0.3) * 0.008, Math.sin(T * 0.2) * 0.01)
+      }
+      // 右手：自然下垂在身体两侧+缓慢摆动
+      if (rightShoulderRef.current) {
+        rightShoulderRef.current.rotation.z = -0.15 - Math.sin(T * 0.3) * 0.02
+        rightShoulderRef.current.rotation.x = 0.2 + Math.sin(T * 0.25 + 0.4) * 0.01
+      }
+      if (rightForearmRef.current) {
+        rightForearmRef.current.rotation.x = 0.3 + Math.sin(T * 0.35 + 0.4) * 0.02
+      }
+      if (rightHandRef.current) {
+        rightHandRef.current.position.set(0.25 + Math.sin(T * 0.25) * 0.01, -0.15 + Math.sin(T * 0.3 + 0.4) * 0.008, Math.sin(T * 0.2 + 0.3) * 0.01)
+      }
+      // 脚：双脚分开，轻松站立+轻微重心转移
+      if (leftLegRef.current) {
+        leftLegRef.current.rotation.x = 0.05 + Math.sin(T * 0.4) * 0.01
+      }
+      if (rightLegRef.current) {
+        rightLegRef.current.rotation.x = -0.05 - Math.sin(T * 0.4) * 0.01
+      }
+    }
+    
+    // 离线：关机/无电，整个人垮掉
+    if (memberStatus === 'offline') {
+      // 身体：垮掉下垂+缓慢下沉
+      if (bodyRef.current) {
+        bodyRef.current.rotation.z = -0.15 + Math.sin(T * 0.15) * 0.01
+        bodyRef.current.position.y = 0.47 + Math.sin(T * 0.1) * 0.003
+      }
+      // 头：完全垂下+缓慢摇晃（低头打瞌睡）
+      if (headRef.current) {
+        headRef.current.rotation.x = 0.5 + Math.sin(T * 0.2) * 0.01
+        headRef.current.rotation.z = Math.sin(T * 0.15) * 0.02
+      }
+      // 眼睛：完全闭上（睡觉）
+      if (leftEyeRef.current) {
+        leftEyeRef.current.visible = false
+        leftEyeRef.current.scale.set(0.001, 0.001, 0.001)
+      }
+      if (rightEyeRef.current) {
+        rightEyeRef.current.visible = false
+        rightEyeRef.current.scale.set(0.001, 0.001, 0.001)
+      }
+      if (leftPupilRef.current) {
+        leftPupilRef.current.visible = false
+        leftPupilRef.current.scale.set(0.001, 0.001, 0.001)
+      }
+      if (rightPupilRef.current) {
+        rightPupilRef.current.visible = false
+        rightPupilRef.current.scale.set(0.001, 0.001, 0.001)
+      }
+      // 嘴巴：闭嘴（睡觉）
+      if (mouthRef.current) {
+        mouthRef.current.visible = false
+      }
+      // 左手：完全无力下垂+缓慢摆动
+      if (leftShoulderRef.current) {
+        leftShoulderRef.current.rotation.z = 0.4 + Math.sin(T * 0.2) * 0.015
+        leftShoulderRef.current.rotation.x = 0.4 + Math.sin(T * 0.15) * 0.01
+      }
+      if (leftForearmRef.current) {
+        leftForearmRef.current.rotation.x = 0.6 + Math.sin(T * 0.25) * 0.02
+      }
+      if (leftHandRef.current) {
+        leftHandRef.current.position.set(-0.3 + Math.sin(T * 0.15) * 0.01, -0.35 + Math.sin(T * 0.2) * 0.008, Math.sin(T * 0.1) * 0.005)
+      }
+      // 右手：完全无力下垂+缓慢摆动
+      if (rightShoulderRef.current) {
+        rightShoulderRef.current.rotation.z = -0.4 - Math.sin(T * 0.2) * 0.015
+        rightShoulderRef.current.rotation.x = 0.4 + Math.sin(T * 0.15) * 0.01
+      }
+      if (rightForearmRef.current) {
+        rightForearmRef.current.rotation.x = 0.6 + Math.sin(T * 0.25) * 0.02
+      }
+      if (rightHandRef.current) {
+        rightHandRef.current.position.set(0.3 + Math.sin(T * 0.15) * 0.01, -0.35 + Math.sin(T * 0.2) * 0.008, Math.sin(T * 0.1) * 0.005)
+      }
+      // 脚：无力站立+缓慢重心转移
+      if (leftLegRef.current) {
+        leftLegRef.current.rotation.x = 0.1 + Math.sin(T * 0.2) * 0.015
+      }
+      if (rightLegRef.current) {
+        rightLegRef.current.rotation.x = -0.1 - Math.sin(T * 0.2) * 0.015
+      }
+    }
+    
+
   })
   
   const handlePointerOver = (e) => {
@@ -665,27 +1028,63 @@ function Person({ position, name, color, emissive, memberId, onClick, isSelected
     document.body.style.cursor = 'grab'
   }
   
-  const scale = isNarrow ? 0.75 : 1
   const fontSize = isNarrow ? 0.16 : 0.22
   
   return (
     <group 
       ref={groupRef} 
-      position={[position[0] * scale, position[1], position[2] || 0]} 
+      position={[position[0], position[1], position[2] || 0]} 
       onClick={(e) => { e.stopPropagation(); onClick() }}
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
-      scale={[scale, scale, scale]}
     >
-      {/* 光环 */}
-      <mesh ref={glowRef} position={[0, 0.6, -0.1]}>
-        <cylinderGeometry args={[0.35, 0.35, 1.2, 32]} />
-        <meshBasicMaterial color={color} transparent opacity={0} side={THREE.BackSide} />
-      </mesh>
+      {/* 脚底渐变光环 - 椭圆透视效果 */}
+      <sprite ref={glowRef} position={[0, 0.02, 0]} rotation={[-0.3, 0, 0]} scale={[50, 12, 1]}>
+        <spriteMaterial 
+          map={gradientTexture}
+          color={color} 
+          transparent 
+          opacity={0} 
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </sprite>
       
       {/* 身体 */}
       <mesh ref={bodyRef} position={[0, 0.5, 0]}>
         <capsuleGeometry args={[0.12, 0.3, 8, 16]} />
+        <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.35} roughness={0.25} metalness={0.25} />
+      </mesh>
+      
+      {/* 左腿 */}
+      <mesh ref={leftLegRef} position={[-0.1, 0.2, 0]} rotation={[0.1, 0, 0]}>
+        <capsuleGeometry args={[0.04, 0.2, 8, 16]} />
+        <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.35} roughness={0.25} metalness={0.25} />
+      </mesh>
+      {/* 左脚 */}
+      <mesh ref={leftFootRef} position={[-0.1, 0.06, 0.05]}>
+        <boxGeometry args={[0.06, 0.035, 0.12]} />
+        <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.35} roughness={0.25} metalness={0.25} />
+      </mesh>
+      {/* 左脚掌 */}
+      <mesh ref={leftFootPadRef} position={[-0.1, 0.04, 0.1]}>
+        <boxGeometry args={[0.04, 0.015, 0.05]} />
+        <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.35} roughness={0.25} metalness={0.25} />
+      </mesh>
+      
+      {/* 右腿 */}
+      <mesh ref={rightLegRef} position={[0.1, 0.2, 0]} rotation={[-0.1, 0, 0]}>
+        <capsuleGeometry args={[0.04, 0.2, 8, 16]} />
+        <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.35} roughness={0.25} metalness={0.25} />
+      </mesh>
+      {/* 右脚 */}
+      <mesh ref={rightFootRef} position={[0.1, 0.06, 0.05]}>
+        <boxGeometry args={[0.06, 0.035, 0.12]} />
+        <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.35} roughness={0.25} metalness={0.25} />
+      </mesh>
+      {/* 右脚掌 */}
+      <mesh ref={rightFootPadRef} position={[0.1, 0.04, 0.1]}>
+        <boxGeometry args={[0.04, 0.015, 0.05]} />
         <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.35} roughness={0.25} metalness={0.25} />
       </mesh>
       
@@ -695,8 +1094,115 @@ function Person({ position, name, color, emissive, memberId, onClick, isSelected
         <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.35} roughness={0.25} metalness={0.25} />
       </mesh>
       
+      {/* 左眼 - 放大眼球 */}
+      <mesh ref={leftEyeRef} position={[-0.065, 1.09, 0.13]}>
+        <sphereGeometry args={[0.055, 16, 16]} />
+        <meshBasicMaterial color="#1a1a1a" />
+      </mesh>
+      {/* 左眼瞳孔 */}
+      <mesh ref={leftPupilRef} position={[-0.065, 1.09, 0.165]}>
+        <sphereGeometry args={[0.03, 8, 8]} />
+        <meshBasicMaterial color="#ffffff" />
+      </mesh>
+      
+      {/* 右眼 - 放大眼球 */}
+      <mesh ref={rightEyeRef} position={[0.065, 1.09, 0.13]}>
+        <sphereGeometry args={[0.055, 16, 16]} />
+        <meshBasicMaterial color="#1a1a1a" />
+      </mesh>
+      {/* 右眼瞳孔 */}
+      <mesh ref={rightPupilRef} position={[0.065, 1.09, 0.165]}>
+        <sphereGeometry args={[0.03, 8, 8]} />
+        <meshBasicMaterial color="#ffffff" />
+      </mesh>
+      
+      {/* 嘴巴 - 形象设计 */}
+      <group ref={mouthRef} position={[0, 0.96, 0.145]}>
+        {/* 嘴巴背景（黑色） */}
+        <mesh position={[0, 0, 0]}>
+          <boxGeometry args={[0.09, 0.045, 0.02]} />
+          <meshBasicMaterial color="#1a1a1a" />
+        </mesh>
+        {/* 上排牙齿 */}
+        <mesh position={[0, 0.012, 0.01]}>
+          <boxGeometry args={[0.07, 0.018, 0.015]} />
+          <meshBasicMaterial color="#ffffff" />
+        </mesh>
+        {/* 下排牙齿 */}
+        <mesh position={[0, -0.012, 0.01]}>
+          <boxGeometry args={[0.07, 0.018, 0.015]} />
+          <meshBasicMaterial color="#f5f5f5" />
+        </mesh>
+        {/* 上嘴唇（红色圆弧） */}
+        <mesh position={[0, 0.025, -0.005]} rotation={[0.2, 0, 0]}>
+          <torusGeometry args={[0.045, 0.018, 12, 24, Math.PI]} />
+          <meshBasicMaterial color="#e85d75" />
+        </mesh>
+        {/* 下嘴唇（红色圆弧） */}
+        <mesh position={[0, -0.025, -0.005]} rotation={[-0.2, 0, 0]}>
+          <torusGeometry args={[0.045, 0.018, 12, 24, Math.PI]} />
+          <meshBasicMaterial color="#e85d75" />
+        </mesh>
+      </group>
+      
+      {/* 左臂组 - 从身体两侧出发 */}
+      <group ref={leftShoulderRef} position={[-0.18, 0.72, 0]}>
+        {/* 上臂 - 肩膀到手肘 */}
+        <mesh position={[0, -0.14, 0]}>
+          <capsuleGeometry args={[0.038, 0.18, 8, 16]} />
+          <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.35} />
+        </mesh>
+        {/* 前臂组 - 手肘 */}
+        <group ref={leftForearmRef} position={[0, -0.28, 0.02]} rotation={[0.4, 0, 0]}>
+          {/* 前臂 - 手肘到手腕 */}
+          <mesh position={[0, -0.12, 0]}>
+            <capsuleGeometry args={[0.03, 0.14, 8, 16]} />
+            <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.35} />
+          </mesh>
+          {/* 左手 */}
+          <mesh ref={leftHandRef} position={[0, -0.25, 0]}>
+            <sphereGeometry args={[0.045, 16, 16]} />
+            <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.35} />
+          </mesh>
+        </group>
+      </group>
+      
+      {/* 右臂组 - 从身体两侧出发 */}
+      <group ref={rightShoulderRef} position={[0.18, 0.72, 0]}>
+        {/* 上臂 - 肩膀到手肘 */}
+        <mesh position={[0, -0.14, 0]}>
+          <capsuleGeometry args={[0.038, 0.18, 8, 16]} />
+          <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.35} />
+        </mesh>
+        {/* 前臂组 - 手肘 */}
+        <group ref={rightForearmRef} position={[0, -0.28, 0.02]} rotation={[0.4, 0, 0]}>
+          {/* 前臂 - 手肘到手腕 */}
+          <mesh position={[0, -0.12, 0]}>
+            <capsuleGeometry args={[0.03, 0.14, 8, 16]} />
+            <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.35} />
+          </mesh>
+          {/* 右手 */}
+          <mesh ref={rightHandRef} position={[0, -0.25, 0]}>
+            <sphereGeometry args={[0.045, 16, 16]} />
+            <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.35} />
+          </mesh>
+        </group>
+      </group>
+      
+      {/* 放大触控区域 - 透明大球 */}
+      <mesh position={[0, 0.6, 0]}>
+        <sphereGeometry args={[0.8, 16, 16]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+      
       {/* 职业配件 */}
-      {accessory && <RoleAccessory type={accessory.type} color={accessory.color} scale={scale} />}
+      <mesh ref={headRef} position={[0, 1.05, 0]}>
+        <sphereGeometry args={[0.18, 32, 32]} />
+        <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.35} roughness={0.25} metalness={0.25} />
+      </mesh>
+      
+      {/* 职业配件 */}
+      {accessory && <RoleAccessory type={accessory.type} color={accessory.color} scale={1} />}
       
       {/* 任务进度指示器 */}
       {hasActiveTask && (
@@ -720,12 +1226,29 @@ function Person({ position, name, color, emissive, memberId, onClick, isSelected
         </group>
       )}
       
-      {/* 名字 */}
-      <Billboard position={[0, hasActiveTask ? 2.0 : 1.85, 0]} follow={true}>
-        <Text fontSize={fontSize} color="#fafafa" anchorX="center" anchorY="middle" outlineWidth={0.025} outlineColor="#000000">
-          {name}
-        </Text>
-      </Billboard>
+      {/* 名字 - 悬停/选中时隐藏，避免与气泡重叠 */}
+      {!(hovered || isSelected) && (
+        <Billboard position={[0, hasActiveTask ? 2.0 : 1.85, 0]} follow={true}>
+          <Text fontSize={fontSize} color="#fafafa" anchorX="center" anchorY="middle" outlineWidth={0.025} outlineColor="#000000">
+            {name}
+          </Text>
+        </Billboard>
+      )}
+      
+      {/* 悬停气泡提示 */}
+      {(hovered || isSelected) && (
+        <group position={[0, 2, 0]}>
+          <Text fontSize={0.18} color="#ffffff" anchorX="center" anchorY="middle">
+            {name}
+          </Text>
+          <Text fontSize={0.12} color="#a1a1aa" anchorX="center" anchorY="middle" position={[0, -0.2, 0]}>
+            {memberTitle || '成员'}
+          </Text>
+          <Text fontSize={0.13} color={currentStatus.textColor} anchorX="center" anchorY="middle" position={[0, -0.4, 0]}>
+            {currentStatus.icon} {currentStatus.label}
+          </Text>
+        </group>
+      )}
     </group>
   )
 }
@@ -867,7 +1390,7 @@ function Scene() {
           <group key={item.id}>
             <DeptLabel 
               x={item.x} 
-              y={item.y} 
+              y={item.y - 0.2} 
               icon={dept?.icon} 
               name={dept?.name} 
               color={levelColors[item.level]}
@@ -886,6 +1409,8 @@ function Scene() {
                   const task = members.flatMap(d => d).find ? null : null
                   return false
                 })]?.progress}
+                memberTitle={deptMembers[0].title}
+                memberStatus={deptMembers[0].status}
               />
             ) : (
               deptMembers.map((member, i) => {
@@ -908,6 +1433,8 @@ function Scene() {
                     onClick={() => selectMember(member.id)}
                     isSelected={selectedMember?.id === member.id}
                     taskProgress={taskProgress}
+                    memberTitle={member.title}
+                    memberStatus={member.status}
                   />
                 )
               })
