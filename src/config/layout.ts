@@ -41,20 +41,21 @@ export interface DepartmentLevel {
   name: string
   icon: string
   color: string
+  x: number  // X轴位置
   y: number  // Y轴位置
   members: number  // 该层级的成员数量
 }
 
 /** 默认部门层级 */
 export const defaultDepartmentLevels: DepartmentLevel[] = [
-  { id: 'CEO', name: '总裁', icon: '👔', color: '#f59e0b', y: 8, members: 1 },
-  { id: 'COO', name: '运营', icon: '🎯', color: '#3b82f6', y: 5, members: 1 },
-  { id: 'MKT', name: '市场', icon: '📢', color: '#10b981', y: 2, members: 1 },
-  { id: 'SAL', name: '销售', icon: '💰', color: '#8b5cf6', y: 2, members: 1 },
-  { id: 'DEL', name: '交付', icon: '🚀', color: '#06b6d4', y: -1, members: 1 },
-  { id: 'IT', name: '技术', icon: '💻', color: '#ec4899', y: -1, members: 1 },
-  { id: 'FIN', name: '财务', icon: '📊', color: '#f97316', y: -4, members: 1 },
-  { id: 'OPR', name: '运营', icon: '⚙️', color: '#84cc16', y: -4, members: 1 },
+  { id: 'CEO', name: '总裁', icon: '👔', color: '#f59e0b', x: 0, y: 8, members: 1 },
+  { id: 'COO', name: '运营', icon: '🎯', color: '#3b82f6', x: 0, y: 5, members: 1 },
+  { id: 'MKT', name: '市场', icon: '📢', color: '#10b981', x: -2, y: 2, members: 1 },
+  { id: 'SAL', name: '销售', icon: '💰', color: '#8b5cf6', x: 2, y: 2, members: 1 },
+  { id: 'DEL', name: '交付', icon: '🚀', color: '#06b6d4', x: -3, y: -1, members: 1 },
+  { id: 'IT', name: '技术', icon: '💻', color: '#ec4899', x: 3, y: -1, members: 1 },
+  { id: 'FIN', name: '财务', icon: '📊', color: '#f97316', x: -4, y: -4, members: 1 },
+  { id: 'OPR', name: '运营', icon: '⚙️', color: '#84cc16', x: 4, y: -4, members: 1 },
 ]
 
 /** 连接线定义 */
