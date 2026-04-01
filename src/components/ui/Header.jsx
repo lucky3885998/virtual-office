@@ -61,7 +61,6 @@ function Header({ time, date }) {
     currentRole,
     setRole,
     currentPermissions,
-    exportData,
     exportReports,
     lastUpdateTime,
     simulateStatusUpdate,
@@ -207,28 +206,6 @@ function Header({ time, date }) {
             部门
           </button>
         </div>
-        
-        {/* Export Buttons */}
-        {currentPermissions.canExport && (
-          <>
-            <button 
-              className="ui-segment-btn" 
-              onClick={() => exportData('json')}
-              title="导出JSON"
-              style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' }}
-            >
-              📥
-            </button>
-            <button 
-              className="ui-segment-btn" 
-              onClick={() => exportData('csv')}
-              title="导出CSV"
-              style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}
-            >
-              📊
-            </button>
-          </>
-        )}
         
         {/* Export Reports Buttons */}
         {currentPermissions.canExport && reports.length > 0 && (
