@@ -158,6 +158,21 @@ virtual-office/
 - **Service**: 业务逻辑（数据转换、事件触发）
 - **Store**: UI状态（选中、面板显隐、筛选条件）
 - **UI**: React组件（渲染和交互）
+
+### 3.4 Store与Service集成
+
+```
+组件 ←→ Store ←→ Service ←→ Adapter ←→ Config
+           ↓
+      storeBridge.js  # 桥接层，同步状态
+           ↓
+      useOrgService  # React Hook，组件可直接访问Service
+```
+
+**集成方式：**
+- `storeBridge.js`: Store与Service之间的同步桥接
+- `useOrgService`: React Hook，组件可直接调用Service方法
+- Service采用发布-订阅模式，Store订阅Service事件保持同步
 ```
 
 ---
