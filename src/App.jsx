@@ -12,7 +12,6 @@ import DraggablePanel from './components/ui/DraggablePanel'
 import StatusBar from './components/ui/StatusBar'
 import KeyboardShortcutsPanel from './components/ui/KeyboardShortcutsPanel'
 import useOfficeStore from './stores/officeStore'
-import { useRealTimeData, realtimeSimulator } from './services/dataService'
 
 function CameraController() {
   const { camera, size } = useThree()
@@ -98,17 +97,6 @@ function App() {
   useEffect(() => {
     initializeNotifications()
   }, [initializeNotifications])
-  
-  // 启动实时数据服务
-  useRealTimeData({
-    enabled: autoUpdateEnabled,
-    onDataUpdate: (data) => {
-      console.log('[RealTime] Data updated:', data)
-    },
-    onNewMessage: (message) => {
-      console.log('[RealTime] New message:', message)
-    }
-  })
   
   // 实时时钟
   useEffect(() => {

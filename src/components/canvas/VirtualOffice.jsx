@@ -635,6 +635,57 @@ const connections = [
   { from: 'IT', to: 'OPR' },
 ]
 
+// 部门聚焦视图 - 显示选中部门的成员
+function DepartmentFocusView({ deptId, members, layout }) {
+  const groupRef = useRef()
+  const { selectMember, selectedMember, executingTasks, tasks } = useOfficeStore()
+  
+  const layoutItem = layout.find(l => l.id === deptId)
+  if (!layoutItem) return null
+  
+  const deptMembers = members.filter(m => m.department === deptId)
+  
+  useFrame((state) => {
+    if (groupRef.current) {
+      const t = state.clock.elapsedTime
+      groupRef.current.position.y = Math.sin(t * 0.3) * 0.05
+    }
+  })
+  
+  return (
+    <group ref={groupRef}>
+      {deptMembers.map((member, i) => {
+        const spacing = 2.2
+        const offset = (deptMembers.length - 1) * spacing / 2
+        const x = layoutItem.x + i * spacing - offset
+        const y = layoutItem.y
+        
+        const memberTaskId = Object.keys(executingTasks).find(tid => {
+          const task = tasks?.find(t => t.id === tid)
+          return task?.assignee === member.id
+        })
+        const taskProgress = memberTaskId ? executingTasks[memberTaskId]?.progress : null
+        
+        return (
+          <Person
+            key={member.id}
+            position={[x, y, 0]}
+            name={member.name}
+            color={statusColors[member.status] || statusColors.offline}
+            emissive={statusEmissive[member.status] || statusEmissive.offline}
+            memberId={member.id}
+            onClick={() => selectMember(member.id)}
+            isSelected={selectedMember?.id === member.id}
+            taskProgress={taskProgress}
+            memberTitle={member.title}
+            memberStatus={member.status}
+          />
+        )
+      })}
+    </group>
+  )
+}
+
 function Person({ position, name, color, emissive, memberId, onClick, isSelected, taskProgress, memberTitle, memberStatus }) {
   const groupRef = useRef()
   const bodyRef = useRef()
@@ -1346,7 +1397,7 @@ function Title3D() {
 }
 
 function Scene() {
-  const { members, selectMember, selectedMember, executingTasks, tasks } = useOfficeStore()
+  const { members, selectMember, selectedMember, executingTasks, tasks, viewMode, filterDepartment } = useOfficeStore()
   
   const orgLayout = useMemo(() => getLayout(), [])
   
@@ -1355,6 +1406,10 @@ function Scene() {
     orgLayout.forEach(item => { map[item.id] = item })
     return map
   }, [orgLayout])
+  
+  // 部门视图模式判断
+  const isDepartmentView = viewMode === 'dept'
+  const showAllDepts = !isDepartmentView || !filterDepartment
   
   return (
     <>
@@ -1369,20 +1424,30 @@ function Scene() {
       <CenterGlow />
       <DataCubes />
       <AmbientParticles />
-      <Title3D />
+      {showAllDepts && <Title3D />}
       
       {orgLayout.map((item) => (
         <LevelBar key={item.id} y={item.y} color={levelColors[item.level]} />
       ))}
       
-      {connections.map(conn => {
+      {showAllDepts && connections.map(conn => {
         const from = layoutMap[conn.from]
         const to = layoutMap[conn.to]
         if (!from || !to) return null
         return <ConnectionLine key={conn.from + '-' + conn.to} from={from} to={to} />
       })}
       
-      {orgLayout.map((item) => {
+      {/* 部门视图模式 - 显示选中部门的成员 */}
+      {isDepartmentView && filterDepartment && (
+        <DepartmentFocusView 
+          deptId={filterDepartment} 
+          members={members} 
+          layout={orgLayout}
+        />
+      )}
+      
+      {/* 全部视图模式 */}
+      {showAllDepts && orgLayout.map((item) => {
         const dept = departments[item.id]
         const deptMembers = members.filter(m => m.department === item.id)
         

@@ -246,12 +246,40 @@ const useOfficeStore = create((set, get) => ({
     if (!state.currentPermissions.canChangeStatus) return state
     
     const statuses = ['working', 'idle', 'busy', 'offline']
-    const randomMember = state.members[Math.floor(Math.random() * state.members.length)]
-    const newStatus = statuses[Math.floor(Math.random() * statuses.length)]
     
-    const newMembers = state.members.map(m => 
-      m.id === randomMember.id ? { ...m, status: newStatus } : m
-    )
+    // 每次更新1-3个成员的状态
+    const updateCount = Math.floor(Math.random() * 3) + 1
+    const memberIndices = []
+    
+    for (let i = 0; i < updateCount; i++) {
+      const idx = Math.floor(Math.random() * state.members.length)
+      if (!memberIndices.includes(idx)) {
+        memberIndices.push(idx)
+      }
+    }
+    
+    const newMembers = state.members.map((m, idx) => {
+      if (memberIndices.includes(idx)) {
+        // 根据是否有进行中任务来决定状态
+        const memberTasks = state.tasks.filter(t => t.assignee === m.id && t.status === 'in-progress')
+        let newStatus
+        
+        if (memberTasks.length > 0) {
+          // 有进行中任务，80%概率忙碌，20%概率工作
+          newStatus = Math.random() < 0.8 ? 'busy' : 'working'
+        } else {
+          // 没有任务，根据权重选择
+          const rand = Math.random()
+          if (rand < 0.5) newStatus = 'working'
+          else if (rand < 0.75) newStatus = 'idle'
+          else if (rand < 0.9) newStatus = 'busy'
+          else newStatus = 'offline'
+        }
+        
+        return { ...m, status: newStatus }
+      }
+      return m
+    })
     
     return {
       members: newMembers,
@@ -572,30 +600,40 @@ const useOfficeStore = create((set, get) => ({
     // 模拟定期系统公告
     const timer = setInterval(() => {
       const currentState = useOfficeStore.getState()
-      const announcements = [
-        '🌟 每日提醒：保持积极心态，高效完成工作！',
-        '📊 系统通知：本周工作报告请于周五前提交。',
-        '☕ 温馨提示：下午茶时间到了，记得休息一下！',
-        '📅 会议提醒：15分钟后有部门例会，请准时参加。',
-        '🎉 同事动态：欢迎新同事加入纳灵大家庭！',
-      ]
+      const notifications = []
+      const now = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
       
-      const randomAnnouncement = announcements[Math.floor(Math.random() * announcements.length)]
+      // 随机生成1-2条通知
+      const notificationCount = Math.floor(Math.random() * 2) + 1
       
-      const notification = {
-        id: `notif-sys-${Date.now()}`,
-        type: 'system',
-        title: '📢 系统通知',
-        content: randomAnnouncement,
-        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
-        read: false
+      for (let i = 0; i < notificationCount; i++) {
+        const notifTypes = [
+          { type: 'system', title: '📢 系统通知', content: '🌟 保持积极心态，高效完成今日任务！' },
+          { type: 'system', title: '📊 工作动态', content: '💼 销售部门已完成本月KPI目标！' },
+          { type: 'task', title: '✅ 任务完成', content: '🎉 IT部门完成了系统安全检查' },
+          { type: 'status', title: '👤 状态更新', content: '🔄 多名同事状态已更新' },
+          { type: 'system', title: '☕ 休息提醒', content: '☕ 适当休息，保持高效！' },
+          { type: 'report', title: '📋 新报告', content: '📝 市场部提交了本周工作报告' },
+          { type: 'system', title: '📅 会议提醒', content: '⏰ 部门例会将在15分钟后开始' },
+        ]
+        
+        const randomNotif = notifTypes[Math.floor(Math.random() * notifTypes.length)]
+        
+        notifications.push({
+          id: `notif-${Date.now()}-${i}`,
+          type: randomNotif.type,
+          title: randomNotif.title,
+          content: randomNotif.content,
+          time: now,
+          read: false
+        })
       }
       
       useOfficeStore.setState({
-        notifications: [notification, ...currentState.notifications].slice(0, 50),
-        unreadCount: currentState.unreadCount + 1
+        notifications: [...notifications, ...currentState.notifications].slice(0, 50),
+        unreadCount: currentState.unreadCount + notificationCount
       })
-    }, 30000) // 每30秒发送一条模拟通知
+    }, 15000) // 每15秒发送模拟通知
     
     set({ notificationTimer: timer })
   },
@@ -617,7 +655,7 @@ const useOfficeStore = create((set, get) => ({
       id: `notif-welcome-${Date.now()}`,
       type: 'system',
       title: '🎉 欢迎使用',
-      content: '纳灵数字企业虚拟办公室已启动通知系统，每30秒推送一条系统公告。',
+      content: '纳灵数字企业虚拟办公室已启动，每15秒推送实时动态。点击右上角 LIVE 开关可控制实时更新。',
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
       read: false
     }
