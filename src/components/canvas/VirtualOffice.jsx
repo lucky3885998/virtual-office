@@ -635,6 +635,93 @@ const connections = [
   { from: 'IT', to: 'OPR' },
 ]
 
+// 会议室3D空间组件
+function MeetingRoom3D({ roomId, roomConfig, participants }) {
+  const groupRef = useRef()
+  
+  useFrame((state) => {
+    if (groupRef.current) {
+      const t = state.clock.elapsedTime
+      // 会议室轻微浮动
+      groupRef.current.position.y = Math.sin(t * 0.3) * 0.02
+    }
+  })
+  
+  return (
+    <group ref={groupRef} position={[6, 0, -5]}>
+      {/* 会议室地板 */}
+      <mesh position={[0, -0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[4, 3]} />
+        <meshStandardMaterial color={roomConfig.color} transparent opacity={0.15} />
+      </mesh>
+      
+      {/* 会议室边框 */}
+      <mesh position={[0, 0, -1.5]}>
+        <boxGeometry args={[4.2, 0.05, 0.05]} />
+        <meshStandardMaterial color={roomConfig.color} emissive={roomConfig.color} emissiveIntensity={0.5} />
+      </mesh>
+      <mesh position={[-2, 0, 0]}>
+        <boxGeometry args={[0.05, 0.05, 3.2]} />
+        <meshStandardMaterial color={roomConfig.color} emissive={roomConfig.color} emissiveIntensity={0.5} />
+      </mesh>
+      <mesh position={[2, 0, 0]}>
+        <boxGeometry args={[0.05, 0.05, 3.2]} />
+        <meshStandardMaterial color={roomConfig.color} emissive={roomConfig.color} emissiveIntensity={0.5} />
+      </mesh>
+      
+      {/* 会议室名称 */}
+      <Billboard position={[0, 1.5, 0]}>
+        <Text fontSize={0.3} color={roomConfig.color} anchorX="center" anchorY="middle" fontWeight={600}>
+          {roomConfig.icon} {roomConfig.name}
+        </Text>
+      </Billboard>
+      
+      {/* 参与者 */}
+      {participants.map((participant, i) => {
+        const angle = (i / Math.max(participants.length, 1)) * Math.PI * 2
+        const radius = 1.2
+        const x = Math.cos(angle) * radius
+        const z = Math.sin(angle) * radius
+        
+        return (
+          <group key={participant.id} position={[x, 0, z]}>
+            {/* 参与者代表点 */}
+            <mesh>
+              <sphereGeometry args={[0.15, 16, 16]} />
+              <meshStandardMaterial 
+                color={statusColors[participant.status] || '#3b82f6'} 
+                emissive={statusColors[participant.status] || '#3b82f6'} 
+                emissiveIntensity={0.3}
+              />
+            </mesh>
+            {/* 名字 */}
+            <Billboard position={[0, 0.4, 0]}>
+              <Text fontSize={0.12} color="#ffffff" anchorX="center" anchorY="middle">
+                {participant.name}
+              </Text>
+            </Billboard>
+            {/* 发言气泡 */}
+            {i === 0 && (
+              <Billboard position={[0, 0.7, 0]}>
+                <Text fontSize={0.2} color="#22c55e" anchorX="center" anchorY="middle">
+                  💬
+                </Text>
+              </Billboard>
+            )}
+          </group>
+        )
+      })}
+      
+      {/* 会议室人数 */}
+      <Billboard position={[1.5, 1.2, 0]}>
+        <Text fontSize={0.15} color="#a1a1aa" anchorX="center" anchorY="middle">
+          {participants.length}/{roomConfig.capacity}人
+        </Text>
+      </Billboard>
+    </group>
+  )
+}
+
 // 部门聚焦视图 - 显示选中部门的成员
 function DepartmentFocusView({ deptId, members, layout }) {
   const groupRef = useRef()
@@ -1397,7 +1484,7 @@ function Title3D() {
 }
 
 function Scene() {
-  const { members, selectMember, selectedMember, executingTasks, tasks, viewMode, filterDepartment } = useOfficeStore()
+  const { members, selectMember, selectedMember, executingTasks, tasks, viewMode, filterDepartment, meetingRooms, currentMeetingRoom } = useOfficeStore()
   
   const orgLayout = useMemo(() => getLayout(), [])
   
@@ -1410,6 +1497,13 @@ function Scene() {
   // 部门视图模式判断
   const isDepartmentView = viewMode === 'dept'
   const showAllDepts = !isDepartmentView || !filterDepartment
+  
+  // 会议室配置
+  const MEETING_ROOMS = {
+    'room-1': { id: 'room-1', name: '战略会议室', icon: '🏛️', color: '#f59e0b', capacity: 5 },
+    'room-2': { id: 'room-2', name: '协作空间', icon: '💬', color: '#3b82f6', capacity: 8 },
+    'room-3': { id: 'room-3', name: '创意工坊', icon: '💡', color: '#10b981', capacity: 6 }
+  }
   
   return (
     <>
@@ -1435,6 +1529,21 @@ function Scene() {
         const to = layoutMap[conn.to]
         if (!from || !to) return null
         return <ConnectionLine key={conn.from + '-' + conn.to} from={from} to={to} />
+      })}
+      
+      {/* 3D 会议室显示 - 全部视图时显示 */}
+      {showAllDepts && Object.entries(meetingRooms).map(([roomId, participants]) => {
+        if (!participants || participants.length === 0) return null
+        const roomConfig = MEETING_ROOMS[roomId]
+        if (!roomConfig) return null
+        return (
+          <MeetingRoom3D 
+            key={roomId} 
+            roomId={roomId} 
+            roomConfig={roomConfig} 
+            participants={participants}
+          />
+        )
       })}
       
       {/* 部门视图模式 - 显示选中部门的成员 */}

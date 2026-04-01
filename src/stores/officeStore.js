@@ -568,6 +568,15 @@ const useOfficeStore = create((set, get) => ({
   
   toggleTaskPanel: () => set((state) => ({ showTaskPanel: !state.showTaskPanel })),
   
+  showTaskBoard3D: false,
+  toggleTaskBoard3D: () => set((state) => ({ showTaskBoard3D: !state.showTaskBoard3D })),
+  
+  showCollaboration: false,
+  toggleCollaboration: () => set((state) => ({ showCollaboration: !state.showCollaboration })),
+  
+  showDataViz: false,
+  toggleDataViz: () => set((state) => ({ showDataViz: !state.showDataViz })),
+  
   setActiveChat: (chat) => set({ activeChat: chat }),
   
   // ========== 导航系统 Actions ==========
@@ -577,6 +586,89 @@ const useOfficeStore = create((set, get) => ({
   }),
   
   finishNavigation: () => set({ isNavigating: false }),
+  
+  // ========== 虚拟会议室系统 ==========
+  currentMeetingRoom: null,
+  meetingRooms: {}, // { roomId: [memberId, ...] }
+  showMeetingRoom: false,
+  
+  openMeetingRoom: () => set({ showMeetingRoom: true }),
+  
+  closeMeetingRoom: () => set({ showMeetingRoom: false }),
+  
+  joinMeetingRoom: (roomId) => set((state) => {
+    // 找到当前用户（这里用第一个成员作为代表）
+    const currentUser = state.members[0]
+    if (!currentUser) return state
+    
+    // 如果已经在其他会议室，先离开
+    const newMeetingRooms = { ...state.meetingRooms }
+    if (state.currentMeetingRoom && newMeetingRooms[state.currentMeetingRoom]) {
+      newMeetingRooms[state.currentMeetingRoom] = newMeetingRooms[state.currentMeetingRoom].filter(
+        m => m.id !== currentUser.id
+      )
+    }
+    
+    // 加入新会议室
+    if (!newMeetingRooms[roomId]) {
+      newMeetingRooms[roomId] = []
+    }
+    
+    // 检查是否已在该会议室
+    const alreadyInRoom = newMeetingRooms[roomId].some(m => m.id === currentUser.id)
+    if (!alreadyInRoom) {
+      newMeetingRooms[roomId] = [...newMeetingRooms[roomId], currentUser]
+    }
+    
+    // 生成通知
+    const roomNames = { 'room-1': '战略会议室', 'room-2': '协作空间', 'room-3': '创意工坊' }
+    const notification = {
+      id: `notif-meeting-${Date.now()}`,
+      type: 'meeting',
+      title: '🏛️ 加入会议室',
+      content: `已加入 ${roomNames[roomId] || roomId}`,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      read: false
+    }
+    
+    return {
+      currentMeetingRoom: roomId,
+      meetingRooms: newMeetingRooms,
+      notifications: [notification, ...state.notifications].slice(0, 50),
+      unreadCount: state.unreadCount + 1
+    }
+  }),
+  
+  leaveMeetingRoom: () => set((state) => {
+    if (!state.currentMeetingRoom) return state
+    
+    const currentUser = state.members[0]
+    if (!currentUser) return state
+    
+    const newMeetingRooms = { ...state.meetingRooms }
+    if (newMeetingRooms[state.currentMeetingRoom]) {
+      newMeetingRooms[state.currentMeetingRoom] = newMeetingRooms[state.currentMeetingRoom].filter(
+        m => m.id !== currentUser.id
+      )
+    }
+    
+    // 生成通知
+    const notification = {
+      id: `notif-meeting-${Date.now()}`,
+      type: 'meeting',
+      title: '🚪 离开会议室',
+      content: `已离开会议室`,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      read: false
+    }
+    
+    return {
+      currentMeetingRoom: null,
+      meetingRooms: newMeetingRooms,
+      notifications: [notification, ...state.notifications].slice(0, 50),
+      unreadCount: state.unreadCount + 1
+    }
+  }),
   
   // ========== 通知系统 Actions ==========
   markNotificationRead: (notificationId) => set((state) => ({

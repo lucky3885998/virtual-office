@@ -11,6 +11,10 @@ import MiniMap from './components/ui/MiniMap'
 import DraggablePanel from './components/ui/DraggablePanel'
 import StatusBar from './components/ui/StatusBar'
 import KeyboardShortcutsPanel from './components/ui/KeyboardShortcutsPanel'
+import MeetingRoomList from './components/ui/MeetingRoom'
+import TaskBoard3D from './components/ui/TaskBoard3D'
+import Collaboration from './components/ui/Collaboration'
+import DataViz from './components/ui/DataViz'
 import useOfficeStore from './stores/officeStore'
 
 function CameraController() {
@@ -79,6 +83,14 @@ function App() {
   const navigateTo = useOfficeStore(state => state.navigateTo)
   const toggleTaskPanel = useOfficeStore(state => state.toggleTaskPanel)
   const toggleMessagePanel = useOfficeStore(state => state.toggleMessagePanel)
+  const showMeetingRoom = useOfficeStore(state => state.showMeetingRoom)
+  const closeMeetingRoom = useOfficeStore(state => state.closeMeetingRoom)
+  const showTaskBoard3D = useOfficeStore(state => state.showTaskBoard3D)
+  const toggleTaskBoard3D = useOfficeStore(state => state.toggleTaskBoard3D)
+  const showCollaboration = useOfficeStore(state => state.showCollaboration)
+  const toggleCollaboration = useOfficeStore(state => state.toggleCollaboration)
+  const showDataViz = useOfficeStore(state => state.showDataViz)
+  const toggleDataViz = useOfficeStore(state => state.toggleDataViz)
   
   const [isExiting, setIsExiting] = useState(false)
   const [showPanel, setShowPanel] = useState(false)
@@ -362,6 +374,96 @@ function App() {
           }}
         >
           <TaskPanel />
+        </DraggablePanel>
+      )}
+      
+      {/* Meeting Room Panel */}
+      {showMeetingRoom && (
+        <div style={{
+          position: 'fixed',
+          top: '70px',
+          right: '16px',
+          width: '380px',
+          maxHeight: 'calc(100vh - 100px)',
+          background: 'rgba(18, 18, 23, 0.98)',
+          backdropFilter: 'blur(24px)',
+          border: '1px solid var(--color-border)',
+          borderRadius: '12px',
+          zIndex: 400,
+          overflow: 'hidden',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
+        }}>
+          <MeetingRoomList onClose={closeMeetingRoom} />
+        </div>
+      )}
+      
+      {/* Task Board 3D Panel */}
+      {showTaskBoard3D && (
+        <DraggablePanel
+          initialPosition={{ x: null, y: null }}
+          style={{
+            position: 'fixed',
+            top: '70px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '420px',
+            maxHeight: 'calc(100vh - 100px)',
+            background: 'rgba(18, 18, 23, 0.98)',
+            backdropFilter: 'blur(24px)',
+            border: '1px solid var(--color-border)',
+            borderRadius: '12px',
+            zIndex: 400,
+            overflow: 'hidden',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
+          }}
+        >
+          <TaskBoard3D onClose={toggleTaskBoard3D} />
+        </DraggablePanel>
+      )}
+      
+      {/* Collaboration Panel */}
+      {showCollaboration && (
+        <DraggablePanel
+          initialPosition={{ x: null, y: null }}
+          style={{
+            position: 'fixed',
+            top: '70px',
+            left: '16px',
+            width: '340px',
+            maxHeight: 'calc(100vh - 100px)',
+            background: 'rgba(18, 18, 23, 0.98)',
+            backdropFilter: 'blur(24px)',
+            border: '1px solid var(--color-border)',
+            borderRadius: '12px',
+            zIndex: 400,
+            overflow: 'hidden',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
+          }}
+        >
+          <Collaboration onClose={toggleCollaboration} />
+        </DraggablePanel>
+      )}
+      
+      {/* Data Viz Panel */}
+      {showDataViz && (
+        <DraggablePanel
+          initialPosition={{ x: null, y: null }}
+          style={{
+            position: 'fixed',
+            top: '70px',
+            right: '16px',
+            width: '360px',
+            maxHeight: 'calc(100vh - 100px)',
+            background: 'rgba(18, 18, 23, 0.98)',
+            backdropFilter: 'blur(24px)',
+            border: '1px solid var(--color-border)',
+            borderRadius: '12px',
+            zIndex: 400,
+            overflow: 'hidden',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
+          }}
+        >
+          <DataViz onClose={toggleDataViz} />
         </DraggablePanel>
       )}
       

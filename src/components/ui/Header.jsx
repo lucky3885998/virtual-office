@@ -304,6 +304,116 @@ function Header({ time, date }) {
         {/* Notification Bell Button */}
         <NotificationBell />
         
+        {/* Meeting Room Button */}
+        {currentPermissions.canChangeStatus && (
+          <button
+            onClick={() => useOfficeStore.getState().openMeetingRoom()}
+            title="虚拟会议室"
+            style={{
+              width: '36px',
+              height: '36px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: useOfficeStore.getState().currentMeetingRoom 
+                ? 'rgba(245, 158, 11, 0.2)' 
+                : 'transparent',
+              border: '1px solid var(--color-border)',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              position: 'relative',
+              transition: 'all 0.15s'
+            }}
+          >
+            🏛️
+            {useOfficeStore.getState().currentMeetingRoom && (
+              <span style={{
+                position: 'absolute',
+                top: '-3px',
+                right: '-3px',
+                width: '8px',
+                height: '8px',
+                background: '#f59e0b',
+                borderRadius: '50%',
+                border: '2px solid var(--color-bg)'
+              }}></span>
+            )}
+          </button>
+        )}
+        
+        {/* Task Board 3D Button */}
+        <button
+          onClick={() => useOfficeStore.getState().toggleTaskBoard3D()}
+          title="3D任务看板"
+          style={{
+            width: '36px',
+            height: '36px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: useOfficeStore.getState().showTaskBoard3D 
+              ? 'rgba(59, 130, 246, 0.2)' 
+              : 'transparent',
+            border: '1px solid var(--color-border)',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '16px',
+            position: 'relative',
+            transition: 'all 0.15s'
+          }}
+        >
+          📊
+        </button>
+        
+        {/* Collaboration Button */}
+        <button
+          onClick={() => useOfficeStore.getState().toggleCollaboration()}
+          title="实时协作"
+          style={{
+            width: '36px',
+            height: '36px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: useOfficeStore.getState().showCollaboration 
+              ? 'rgba(139, 92, 246, 0.2)' 
+              : 'transparent',
+            border: '1px solid var(--color-border)',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '16px',
+            position: 'relative',
+            transition: 'all 0.15s'
+          }}
+        >
+          👥
+        </button>
+        
+        {/* Data Viz Button */}
+        <button
+          onClick={() => useOfficeStore.getState().toggleDataViz()}
+          title="数据可视化"
+          style={{
+            width: '36px',
+            height: '36px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: useOfficeStore.getState().showDataViz 
+              ? 'rgba(16, 185, 129, 0.2)' 
+              : 'transparent',
+            border: '1px solid var(--color-border)',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '16px',
+            position: 'relative',
+            transition: 'all 0.15s'
+          }}
+        >
+          📈
+        </button>
+        
         {/* Real-time Status Indicator */}
         <div style={{
           display: 'flex',
