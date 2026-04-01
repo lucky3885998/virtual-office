@@ -304,6 +304,31 @@ function Header({ time, date }) {
         {/* Notification Bell Button */}
         <NotificationBell />
         
+        {/* Real-time Status Indicator */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          padding: '4px 8px',
+          background: autoUpdateEnabled ? 'rgba(34, 197, 94, 0.1)' : 'rgba(107, 114, 128, 0.1)',
+          borderRadius: '6px',
+          fontSize: '10px',
+          color: autoUpdateEnabled ? '#22c55e' : '#6b7280',
+          cursor: 'pointer',
+          transition: 'all 0.2s'
+        }} onClick={toggleAutoUpdate} title={autoUpdateEnabled ? '实时数据已开启' : '实时数据已关闭'}>
+          <span style={{
+            width: '6px',
+            height: '6px',
+            borderRadius: '50%',
+            background: autoUpdateEnabled ? '#22c55e' : '#6b7280',
+            animation: autoUpdateEnabled ? 'pulse 2s infinite' : 'none'
+          }}></span>
+          <span style={{ fontWeight: 500 }}>
+            {autoUpdateEnabled ? 'LIVE' : 'PAUSED'}
+          </span>
+        </div>
+        
         {/* Simulate Update (Admin only) */}
         {currentPermissions.canChangeStatus && (
           <>
