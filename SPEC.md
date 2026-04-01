@@ -3,7 +3,7 @@
 **项目编号**：PJ-VO-001
 **项目名称**：纳灵数字企业虚拟办公室
 **项目类型**：Web 3D 可视化看板
-**版本**：v0.2.0（开发中）
+**版本**：v0.3.0（框架改造中）
 **创建日期**：2026-03-31
 **架构师**：IT-01-01 首席架构师
 **审批人**：COO-Lucky
@@ -86,6 +86,14 @@ virtual-office/
 │   ├── textures/            # 纹理贴图
 │   └── avatars/             # 3D头像
 ├── src/
+│   ├── adapters/            # 数据适配器（通用框架）
+│   │   ├── index.ts         # 统一导出
+│   │   ├── types.ts         # 类型定义
+│   │   └── DataAdapter.ts  # 本地数据适配器
+│   ├── config/              # 配置文件（通用框架）
+│   │   ├── index.ts         # 统一导出
+│   │   ├── theme.ts         # 主题配置
+│   │   └── layout.ts        # 布局配置
 │   ├── components/
 │   │   ├── canvas/          # 3D画布组件
 │   │   │   ├── VirtualOffice.jsx
@@ -100,7 +108,7 @@ virtual-office/
 │   ├── services/            # 数据服务层
 │   │   └── dataService.js   # 实时数据服务
 │   ├── stores/              # 状态管理
-│   ├── data/                # 静态数据
+│   ├── data/                # 静态数据（可配置）
 │   │   └── members.js       # 成员数据
 │   ├── styles/              # 样式文件
 │   ├── App.jsx

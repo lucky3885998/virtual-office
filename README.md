@@ -1,15 +1,54 @@
 # 纳灵虚拟办公室 - 数字企业3D可视化看板
 
 **项目编号**：PJ-VO-001
-**当前版本**：v0.1.0
+**当前版本**：v0.3.0
 **架构师**：IT-01-01 首席架构师
-**项目状态**：🟡 开发中
+**项目状态**：🟢 开发中
 
 ---
 
 ## 项目愿景
 
 在数字空间中构建纳灵的虚拟办公室，让每个团队成员都能在3D空间中看见彼此的工作状态、成果和最新动态。
+
+---
+
+## 🎯 通用化框架
+
+本项目正在逐步改造为**通用3D可视化框架**，任何 OpenClaw 用户都可以快速部署自己的虚拟办公室。
+
+### 如何配置自己的数据
+
+编辑 `src/data/members.js` 文件：
+
+```javascript
+export const members = [
+  {
+    id: "your-agent-1",
+    name: "你的名字",
+    title: "职位",
+    department: "部门",
+    status: "working" // working | idle | busy | offline
+  },
+  // 添加更多成员...
+]
+```
+
+编辑 `src/config/layout.js` 来自定义布局。
+
+---
+
+### 适配器模式（开发中）
+
+框架支持多种数据源适配器：
+
+```javascript
+// 本地适配器（默认）
+import { LocalAdapter } from './adapters/DataAdapter'
+
+// OpenClaw Runtime 适配器（待开发）
+import { OpenClawAdapter } from './adapters/OpenClawAdapter'
+```
 
 ---
 
