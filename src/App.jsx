@@ -15,7 +15,10 @@ import MeetingRoomList from './components/ui/MeetingRoom'
 import TaskBoard3D from './components/ui/TaskBoard3D'
 import Collaboration from './components/ui/Collaboration'
 import DataViz from './components/ui/DataViz'
+import MobileToolbar from './components/ui/MobileToolbar'
+import BottomSheetPanel from './components/ui/BottomSheetPanel'
 import useOfficeStore from './stores/officeStore'
+import { useMobile, useDevicePixelRatio } from './hooks/useMobile'
 
 function CameraController() {
   const { camera, size } = useThree()
@@ -67,6 +70,10 @@ function CameraController() {
 }
 
 function App() {
+  // 移动端检测
+  const { isMobile } = useMobile()
+  const deviceDpr = useDevicePixelRatio()
+  
   const showInfoPanel = useOfficeStore(state => state.showInfoPanel)
   const panelPosition = useOfficeStore(state => state.panelPosition)
   const closeInfoPanel = useOfficeStore(state => state.closeInfoPanel)
@@ -318,12 +325,12 @@ function App() {
           orthographic
           camera={{ position: [0, 2, 15], zoom: 45 }}
           style={{ width: '100%', height: '100%' }}
-          gl={{ antialias: true, alpha: false }}
-          dpr={[1, 2]}
+          gl={{ antialias: !isMobile, alpha: false }}
+          dpr={isMobile ? [1, 1.5] : [1, 2]}
         >
           <CameraController />
           <Suspense fallback={null}>
-            <Scene />
+            <Scene isMobile={isMobile} />
           </Suspense>
         </Canvas>
         
@@ -339,132 +346,193 @@ function App() {
       
       <WorkReportPanel />
       
-      {/* Message Panel - 可拖动 */}
+      {/* Message Panel - 可拖动 (桌面) / Bottom Sheet (移动) */}
       {showMessagePanel && (
-        <DraggablePanel 
-          initialPosition={msgPanelPos}
-          style={{
-            width: '380px',
-            height: '100vh',
-            background: 'rgba(18, 18, 23, 0.98)',
-            backdropFilter: 'blur(24px)',
-            borderLeft: '1px solid var(--color-border)',
-            zIndex: 300,
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-        >
-          <MessagePanel />
-        </DraggablePanel>
+        isMobile ? (
+          <BottomSheetPanel
+            title="消息"
+            isOpen={showMessagePanel}
+            onClose={toggleMessagePanel}
+          >
+            <MessagePanel />
+          </BottomSheetPanel>
+        ) : (
+          <DraggablePanel 
+            initialPosition={msgPanelPos}
+            style={{
+              width: '380px',
+              height: '100vh',
+              background: 'rgba(18, 18, 23, 0.98)',
+              backdropFilter: 'blur(24px)',
+              borderLeft: '1px solid var(--color-border)',
+              zIndex: 300,
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            <MessagePanel />
+          </DraggablePanel>
+        )
       )}
       
-      {/* Task Panel - 可拖动 */}
+      {/* Task Panel - 可拖动 (桌面) / Bottom Sheet (移动) */}
       {showTaskPanel && (
-        <DraggablePanel 
-          initialPosition={taskPanelPos}
-          style={{
-            width: '400px',
-            height: '100vh',
-            background: 'rgba(18, 18, 23, 0.98)',
-            backdropFilter: 'blur(24px)',
-            borderLeft: '1px solid var(--color-border)',
-            zIndex: 300,
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-        >
-          <TaskPanel />
-        </DraggablePanel>
+        isMobile ? (
+          <BottomSheetPanel
+            title="任务"
+            isOpen={showTaskPanel}
+            onClose={toggleTaskPanel}
+          >
+            <TaskPanel />
+          </BottomSheetPanel>
+        ) : (
+          <DraggablePanel 
+            initialPosition={taskPanelPos}
+            style={{
+              width: '400px',
+              height: '100vh',
+              background: 'rgba(18, 18, 23, 0.98)',
+              backdropFilter: 'blur(24px)',
+              borderLeft: '1px solid var(--color-border)',
+              zIndex: 300,
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            <TaskPanel />
+          </DraggablePanel>
+        )
       )}
       
-      {/* Meeting Room Panel */}
+      {/* Meeting Room Panel - 桌面 / 移动 */}
       {showMeetingRoom && (
-        <div style={{
-          position: 'fixed',
-          top: '70px',
-          right: '16px',
-          width: '380px',
-          maxHeight: 'calc(100vh - 100px)',
-          background: 'rgba(18, 18, 23, 0.98)',
-          backdropFilter: 'blur(24px)',
-          border: '1px solid var(--color-border)',
-          borderRadius: '12px',
-          zIndex: 400,
-          overflow: 'hidden',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
-        }}>
-          <MeetingRoomList onClose={closeMeetingRoom} />
-        </div>
+        isMobile ? (
+          <BottomSheetPanel
+            title="会议室"
+            isOpen={showMeetingRoom}
+            onClose={closeMeetingRoom}
+          >
+            <MeetingRoomList onClose={closeMeetingRoom} />
+          </BottomSheetPanel>
+        ) : (
+          <div style={{
+            position: 'fixed',
+            top: '70px',
+            right: '16px',
+            width: '380px',
+            maxHeight: 'calc(100vh - 100px)',
+            background: 'rgba(18, 18, 23, 0.98)',
+            backdropFilter: 'blur(24px)',
+            border: '1px solid var(--color-border)',
+            borderRadius: '12px',
+            zIndex: 400,
+            overflow: 'hidden',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
+          }}>
+            <MeetingRoomList onClose={closeMeetingRoom} />
+          </div>
+        )
       )}
       
       {/* Task Board 3D Panel */}
       {showTaskBoard3D && (
-        <DraggablePanel
-          initialPosition={{ x: null, y: null }}
-          style={{
-            position: 'fixed',
-            top: '70px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '420px',
-            maxHeight: 'calc(100vh - 100px)',
-            background: 'rgba(18, 18, 23, 0.98)',
-            backdropFilter: 'blur(24px)',
-            border: '1px solid var(--color-border)',
-            borderRadius: '12px',
-            zIndex: 400,
-            overflow: 'hidden',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
-          }}
-        >
-          <TaskBoard3D onClose={toggleTaskBoard3D} />
-        </DraggablePanel>
+        isMobile ? (
+          <BottomSheetPanel
+            title="3D任务看板"
+            isOpen={showTaskBoard3D}
+            onClose={toggleTaskBoard3D}
+            isFullscreen={false}
+          >
+            <TaskBoard3D onClose={toggleTaskBoard3D} />
+          </BottomSheetPanel>
+        ) : (
+          <DraggablePanel
+            initialPosition={{ x: null, y: null }}
+            style={{
+              position: 'fixed',
+              top: '70px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '420px',
+              maxHeight: 'calc(100vh - 100px)',
+              background: 'rgba(18, 18, 23, 0.98)',
+              backdropFilter: 'blur(24px)',
+              border: '1px solid var(--color-border)',
+              borderRadius: '12px',
+              zIndex: 400,
+              overflow: 'hidden',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
+            }}
+          >
+            <TaskBoard3D onClose={toggleTaskBoard3D} />
+          </DraggablePanel>
+        )
       )}
       
       {/* Collaboration Panel */}
       {showCollaboration && (
-        <DraggablePanel
-          initialPosition={{ x: null, y: null }}
-          style={{
-            position: 'fixed',
-            top: '70px',
-            left: '16px',
-            width: '340px',
-            maxHeight: 'calc(100vh - 100px)',
-            background: 'rgba(18, 18, 23, 0.98)',
-            backdropFilter: 'blur(24px)',
-            border: '1px solid var(--color-border)',
-            borderRadius: '12px',
-            zIndex: 400,
-            overflow: 'hidden',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
-          }}
-        >
-          <Collaboration onClose={toggleCollaboration} />
-        </DraggablePanel>
+        isMobile ? (
+          <BottomSheetPanel
+            title="协作动态"
+            isOpen={showCollaboration}
+            onClose={toggleCollaboration}
+          >
+            <Collaboration onClose={toggleCollaboration} />
+          </BottomSheetPanel>
+        ) : (
+          <DraggablePanel
+            initialPosition={{ x: null, y: null }}
+            style={{
+              position: 'fixed',
+              top: '70px',
+              left: '16px',
+              width: '340px',
+              maxHeight: 'calc(100vh - 100px)',
+              background: 'rgba(18, 18, 23, 0.98)',
+              backdropFilter: 'blur(24px)',
+              border: '1px solid var(--color-border)',
+              borderRadius: '12px',
+              zIndex: 400,
+              overflow: 'hidden',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
+            }}
+          >
+            <Collaboration onClose={toggleCollaboration} />
+          </DraggablePanel>
+        )
       )}
       
       {/* Data Viz Panel */}
       {showDataViz && (
-        <DraggablePanel
-          initialPosition={{ x: null, y: null }}
-          style={{
-            position: 'fixed',
-            top: '70px',
-            right: '16px',
-            width: '360px',
-            maxHeight: 'calc(100vh - 100px)',
-            background: 'rgba(18, 18, 23, 0.98)',
-            backdropFilter: 'blur(24px)',
-            border: '1px solid var(--color-border)',
-            borderRadius: '12px',
-            zIndex: 400,
-            overflow: 'hidden',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
-          }}
-        >
-          <DataViz onClose={toggleDataViz} />
-        </DraggablePanel>
+        isMobile ? (
+          <BottomSheetPanel
+            title="数据概览"
+            isOpen={showDataViz}
+            onClose={toggleDataViz}
+          >
+            <DataViz onClose={toggleDataViz} />
+          </BottomSheetPanel>
+        ) : (
+          <DraggablePanel
+            initialPosition={{ x: null, y: null }}
+            style={{
+              position: 'fixed',
+              top: '70px',
+              right: '16px',
+              width: '360px',
+              maxHeight: 'calc(100vh - 100px)',
+              background: 'rgba(18, 18, 23, 0.98)',
+              backdropFilter: 'blur(24px)',
+              border: '1px solid var(--color-border)',
+              borderRadius: '12px',
+              zIndex: 400,
+              overflow: 'hidden',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
+            }}
+          >
+            <DataViz onClose={toggleDataViz} />
+          </DraggablePanel>
+        )
       )}
       
       {/* Notification Panel - 可拖动 */}
@@ -475,6 +543,9 @@ function App() {
       
       {/* Keyboard Shortcuts Panel */}
       <KeyboardShortcutsPanel />
+      
+      {/* 移动端底部工具栏 */}
+      <MobileToolbar />
     </div>
   )
 }

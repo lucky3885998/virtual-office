@@ -1483,7 +1483,7 @@ function Title3D() {
   )
 }
 
-function Scene() {
+function Scene({ isMobile = false }) {
   const { members, selectMember, selectedMember, executingTasks, tasks, viewMode, filterDepartment, meetingRooms, currentMeetingRoom } = useOfficeStore()
   
   const orgLayout = useMemo(() => getLayout(), [])
