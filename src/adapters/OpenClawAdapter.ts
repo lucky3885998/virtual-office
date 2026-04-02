@@ -1,13 +1,13 @@
 /**
- * OpenClaw 运行时适配器 (v2)
+ * OpenClaw 运行时适配器 (v3)
  *
- * 通过以下方式连接 OpenClaw Gateway:
- * 1. CLI 命令 (sessions, status) 获取运行时数据
- * 2. WebSocket RPC 连接获取实时事件
- * 3. 文件系统读取会话存储
+ * 通过 Sessions Bridge (HTTP API) 连接 OpenClaw:
+ * - 读取真实团队成员状态
+ * - 支持本地和网络访问
+ * - 自动同步 OpenClaw 会话数据
  *
- * Gateway: ws://127.0.0.1:18789
- * 配置: C:\Users\Phil Lian\.openclaw
+ * Bridge API: http://localhost:18792
+ * 网络访问:   http://<本机IP>:18792
  */
 
 import { BaseAdapter, AdapterConfig, Agent, Task, Message, Activity, VizEvent } from './types'
@@ -15,11 +15,8 @@ import { BaseAdapter, AdapterConfig, Agent, Task, Message, Activity, VizEvent } 
 // ============ 类型定义 ============
 
 export interface OpenClawAdapterConfig extends AdapterConfig {
-  gatewayWs?: string      // WebSocket 地址 (默认: ws://127.0.0.1:18789)
-  configPath?: string     // OpenClaw 配置目录
-  sessionsPath?: string  // 会话存储路径
-  pollInterval?: number   // 轮询间隔 (毫秒)
-  enableCLI?: boolean     // 启用 CLI 模式
+  bridgeUrl?: string    // Bridge HTTP API 地址 (默认: http://localhost:18792)
+  pollInterval?: number // 轮询间隔 (毫秒)
 }
 
 export interface GatewayStatus {
@@ -30,32 +27,29 @@ export interface GatewayStatus {
   channels?: string[]
 }
 
-export interface SessionInfo {
-  key: string
-  sessionId: string
-  updatedAt: number
-  agentId: string
-  model?: string
-  kind: string
-  inputTokens?: number
-  outputTokens?: number
-}
-
 // ============ 常量 ============
 
 const DEFAULT_CONFIG: Required<OpenClawAdapterConfig> = {
-  gatewayWs: 'ws://127.0.0.1:18789',
-  configPath: 'C:\\Users\\Phil Lian\\.openclaw',
-  sessionsPath: '',  // 自动检测
+  bridgeUrl: 'http://localhost:18792',
   pollInterval: 10000,
-  enableCLI: true,
   refreshInterval: 10000,
   useSimulation: false
 }
 
+// ============ 渠道名称映射 ============
+
+const CHANNEL_NAMES: Record<string, string> = {
+  openai: 'Web Chat',
+  telegram: 'Telegram',
+  discord: 'Discord',
+  whatsapp: 'WhatsApp',
+  signal: 'Signal',
+  webchat: 'Web 聊天'
+}
+
 const STATUS_COLORS: Record<string, string> = {
-  online: '#22c55e',
-  away: '#eab308',
+  working: '#22c55e',
+  idle: '#eab308',
   busy: '#ef4444',
   offline: '#71717a'
 }
@@ -69,16 +63,11 @@ export class OpenClawAdapter implements BaseAdapter {
   private tasks: Task[] = []
   private activities: Activity[] = []
   private pollIntervalId: ReturnType<typeof setInterval> | null = null
-  private wsConnection: WebSocket | null = null
   private isInitialized = false
   private gatewayStatus: GatewayStatus = { connected: false }
 
   constructor(config: OpenClawAdapterConfig = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config } as Required<OpenClawAdapterConfig>
-    // 自动检测 sessions 路径
-    if (!this.config.sessionsPath) {
-      this.config.sessionsPath = `${this.config.configPath}\\agents\\main\\sessions\\sessions.json`
-    }
   }
 
   // ============ BaseAdapter 实现 ============
@@ -89,10 +78,7 @@ export class OpenClawAdapter implements BaseAdapter {
     }
 
     console.log('[OpenClawAdapter] Initializing...')
-    console.log('[OpenClawAdapter] Config path:', this.config.configPath)
-
-    // 尝试连接 WebSocket Gateway
-    this.connectWebSocket()
+    console.log('[OpenClawAdapter] Bridge URL:', this.config.bridgeUrl)
 
     // 加载初始数据
     await this.loadAgents()
@@ -101,13 +87,13 @@ export class OpenClawAdapter implements BaseAdapter {
     this.addActivity({
       id: `init-${Date.now()}`,
       type: 'system',
-      message: 'OpenClaw 适配器已连接虚拟办公室',
+      message: 'OpenClaw 适配器已连接 (Bridge API)',
       timestamp: Date.now(),
       icon: '🦞',
       color: '#8b5cf6'
     })
 
-    // 启动轮询 (CLI 模式)
+    // 启动轮询
     this.startPolling()
 
     this.isInitialized = true
@@ -139,142 +125,96 @@ export class OpenClawAdapter implements BaseAdapter {
       clearInterval(this.pollIntervalId)
       this.pollIntervalId = null
     }
-    if (this.wsConnection) {
-      this.wsConnection.close()
-      this.wsConnection = null
-    }
     this.subscribers.clear()
     this.isInitialized = false
     console.log('[OpenClawAdapter] Disconnected')
   }
 
-  // ============ WebSocket 连接 ============
+  // ============ Bridge API 调用 ============
 
-  private connectWebSocket(): void {
+  private async fetchAgents(): Promise<any[]> {
     try {
-      console.log('[OpenClawAdapter] Connecting to WebSocket:', this.config.gatewayWs)
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000)
 
-      // WebSocket 连接
-      // 注意: Gateway 使用 WebSocket RPC协议，这里只是演示连接结构
-      this.wsConnection = new WebSocket(this.config.gatewayWs)
+      const response = await fetch(`${this.config.bridgeUrl}/api/agents`, {
+        signal: controller.signal
+      })
 
-      this.wsConnection.onopen = () => {
-        console.log('[OpenClawAdapter] WebSocket connected')
-        this.gatewayStatus.connected = true
-        this.emitStatusUpdate()
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
       }
 
-      this.wsConnection.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          this.handleWSMessage(data)
-        } catch (e) {
-          // 非 JSON 消息，忽略
-        }
+      const data = await response.json()
+      this.gatewayStatus.connected = true
+      return data.agents || []
+    } catch (error) {
+      console.warn('[OpenClawAdapter] Fetch failed:', error)
+      this.gatewayStatus.connected = false
+      return []
+    }
+  }
+
+  private async fetchHealth(): Promise<GatewayStatus> {
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 3000)
+
+      const response = await fetch(`${this.config.bridgeUrl}/health`, {
+        signal: controller.signal
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
       }
 
-      this.wsConnection.onerror = (error) => {
-        console.warn('[OpenClawAdapter] WebSocket error:', error)
-        this.gatewayStatus.connected = false
-      }
-
-      this.wsConnection.onclose = () => {
-        console.log('[OpenClawAdapter] WebSocket disconnected')
-        this.gatewayStatus.connected = false
-        // 尝试重连
-        setTimeout(() => this.connectWebSocket(), 5000)
+      const data = await response.json()
+      return {
+        connected: data.status === 'ok',
+        version: data.version,
+        sessions: data.sessionsCount
       }
     } catch (error) {
-      console.warn('[OpenClawAdapter] WebSocket connection failed:', error)
-      this.gatewayStatus.connected = false
+      return { connected: false }
     }
   }
 
-  private handleWSMessage(data: any): void {
-    // 处理 WebSocket RPC 消息
-    // 格式: { method: string, params?: any, result?: any }
-    if (data.method === 'session.update' || data.method === 'agent.status') {
-      this.emit({
-        type: 'agent_update',
-        data: data.params,
-        timestamp: Date.now()
-      })
-    }
-  }
-
-  // ============ 数据加载 (CLI 模式) ============
+  // ============ 数据加载 ============
 
   private async loadAgents(): Promise<void> {
-    try {
-      // 通过 CLI 获取会话列表
-      const sessions = await this.fetchSessionsViaCLI()
+    const bridgeAgents = await this.fetchAgents()
 
-      if (sessions.length > 0) {
-        this.updateAgentsFromSessions(sessions)
-      } else {
-        // 使用默认代理
-        this.agents = this.getDefaultAgents()
-      }
-
-      this.emit({
-        type: 'agent_update',
-        data: { agents: this.agents },
-        timestamp: Date.now()
-      })
-    } catch (error) {
-      console.warn('[OpenClawAdapter] Failed to load agents:', error)
+    if (bridgeAgents.length > 0) {
+      // 使用 Bridge 返回的真实数据
+      this.agents = bridgeAgents.map(a => ({
+        id: a.id,
+        name: a.name,
+        title: a.title || '',
+        status: a.status as Agent['status'],
+        department: a.department || 'COO',
+        color: a.color || STATUS_COLORS[a.status] || STATUS_COLORS.offline,
+        // 额外数据
+        channel: a.channel,
+        sessionCount: a.sessionCount,
+        updatedAt: a.updatedAt,
+        model: a.model,
+        totalTokens: a.totalTokens,
+        isMain: a.isMain
+      }))
+    } else {
+      // 使用默认代理
       this.agents = this.getDefaultAgents()
     }
-  }
 
-  private async fetchSessionsViaCLI(): Promise<SessionInfo[]> {
-    // 注意: 在浏览器环境中无法直接运行 CLI
-    // 实际实现需要通过 HTTP/WebSocket 中间件
-    // 这里返回模拟数据作为演示
-    return []
-  }
-
-  private updateAgentsFromSessions(sessions: SessionInfo[]): void {
-    const now = Date.now()
-    const activeThreshold = 30 * 60 * 1000 // 30 分钟内有活动视为在线
-
-    this.agents = sessions.map((session, index) => {
-      const isRecent = (now - session.updatedAt) < activeThreshold
-      const status = isRecent ? 'working' : 'offline'
-
-      return {
-        id: session.sessionId,
-        name: this.extractNameFromKey(session.key) || `成员 ${index + 1}`,
-        title: session.model || 'AI 助手',
-        status: status as Agent['status'],
-        department: this.guessDepartment(session.key),
-        color: STATUS_COLORS[status]
-      }
+    this.emit({
+      type: 'agent_update',
+      data: { agents: this.agents },
+      timestamp: Date.now()
     })
-  }
-
-  private extractNameFromKey(key: string): string | null {
-    // 从 session key 提取名称
-    // 格式: agent:main:openai:uuid 或 agent:main:main
-    const parts = key.split(':')
-    if (parts.length >= 3) {
-      const lastPart = parts[parts.length - 1]
-      // 如果最后一个部分是 UUID，跳过
-      if (lastPart.length === 36 && lastPart.includes('-')) {
-        return null
-      }
-      return lastPart
-    }
-    return null
-  }
-
-  private guessDepartment(key: string): string {
-    // 根据 session key 猜测部门
-    if (key.includes('main')) return 'COO'
-    if (key.includes('coder') || key.includes('dev')) return 'IT'
-    if (key.includes('write') || key.includes('blog')) return 'MKT'
-    if (key.includes('sale') || key.includes('crm')) return 'SAL'
-    return 'IT'
   }
 
   private getDefaultAgents(): Agent[] {
@@ -283,9 +223,9 @@ export class OpenClawAdapter implements BaseAdapter {
         id: 'openclaw-main',
         name: 'Lucky-COO',
         title: 'AI 首席运营官',
-        status: 'working',
+        status: 'idle',
         department: 'COO',
-        color: '#3b82f6'
+        color: '#eab308'
       },
       {
         id: 'openclaw-agent-1',
@@ -299,17 +239,9 @@ export class OpenClawAdapter implements BaseAdapter {
         id: 'openclaw-agent-2',
         name: '助手-Beta',
         title: '开发助手',
-        status: 'working',
+        status: 'idle',
         department: 'IT',
-        color: '#22c55e'
-      },
-      {
-        id: 'openclaw-agent-3',
-        name: '助手-Gamma',
-        title: '运维助手',
-        status: 'busy',
-        department: 'OPR',
-        color: '#ef4444'
+        color: '#10b981'
       }
     ]
   }
@@ -325,17 +257,24 @@ export class OpenClawAdapter implements BaseAdapter {
       if (!this.isInitialized) return
 
       try {
+        const [prevCount, prevStatus] = [this.agents.length, this.agents[0]?.status]
+
         await this.loadAgents()
 
-        // 添加心跳活动
-        this.addActivity({
-          id: `heartbeat-${Date.now()}`,
-          type: 'heartbeat',
-          message: '系统心跳 - 虚拟办公室数据已同步',
-          timestamp: Date.now(),
-          icon: '💓',
-          color: '#3b82f6'
-        })
+        // 如果数据有变化，添加活动
+        if (this.agents.length !== prevCount || this.agents[0]?.status !== prevStatus) {
+          const mainAgent = this.agents.find(a => a.isMain)
+          if (mainAgent) {
+            this.addActivity({
+              id: `sync-${Date.now()}`,
+              type: 'heartbeat',
+              message: `${mainAgent.name} 当前: ${mainAgent.status === 'working' ? '工作中' : '待命'}`,
+              timestamp: Date.now(),
+              icon: '🔄',
+              color: STATUS_COLORS[mainAgent.status]
+            })
+          }
+        }
       } catch (error) {
         console.warn('[OpenClawAdapter] Polling error:', error)
       }
@@ -346,14 +285,6 @@ export class OpenClawAdapter implements BaseAdapter {
 
   private emit(event: VizEvent): void {
     this.subscribers.forEach(cb => cb(event))
-  }
-
-  private emitStatusUpdate(): void {
-    this.emit({
-      type: 'agent_update',
-      data: { gatewayStatus: this.gatewayStatus },
-      timestamp: Date.now()
-    })
   }
 
   // ============ 公共方法 ============
@@ -383,12 +314,11 @@ export class OpenClawAdapter implements BaseAdapter {
         timestamp: Date.now()
       })
 
-      // 记录活动
       this.addActivity({
         id: `status-${Date.now()}`,
         type: 'agent_status_changed',
         agentId,
-        message: `${agent.name} 状态更新: ${oldStatus} → ${status}`,
+        message: `${agent.name}: ${oldStatus} → ${status}`,
         timestamp: Date.now(),
         icon: '🔄',
         color: STATUS_COLORS[status]
@@ -401,43 +331,17 @@ export class OpenClawAdapter implements BaseAdapter {
     to?: string
     message: string
   }): Promise<boolean> {
-    // 通过 WebSocket 发送通知
-    if (!this.wsConnection || this.wsConnection.readyState !== WebSocket.OPEN) {
-      console.warn('[OpenClawAdapter] WebSocket not connected')
-      return false
-    }
-
-    try {
-      this.wsConnection.send(JSON.stringify({
-        method: 'notify.send',
-        params: options
-      }))
-      return true
-    } catch (error) {
-      console.error('[OpenClawAdapter] Send notification failed:', error)
-      return false
-    }
+    // Bridge 目前只读，通知功能待实现
+    console.warn('[OpenClawAdapter] Notification via Bridge not implemented yet')
+    return false
   }
 
   async getGatewayHealth(): Promise<GatewayStatus> {
-    // 检查 Gateway 状态
-    const wsConnected = this.wsConnection?.readyState === WebSocket.OPEN
-
-    return {
-      connected: wsConnected,
-      version: '2026.3.28',
-      sessions: this.agents.length
-    }
+    return this.fetchHealth()
   }
 
   getConfig(): Required<OpenClawAdapterConfig> {
     return { ...this.config }
-  }
-
-  // ============ 状态转换 ============
-
-  private statusToColor(status: string): string {
-    return STATUS_COLORS[status] || STATUS_COLORS.offline
   }
 }
 

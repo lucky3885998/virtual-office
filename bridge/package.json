@@ -1,0 +1,15 @@
+{
+  "name": "openclaw-sessions-bridge",
+  "version": "1.0.0",
+  "description": "OpenClaw Sessions Bridge - HTTP API for Virtual Office",
+  "main": "server.cjs",
+  "scripts": {
+    "start": "node server.cjs",
+    "start:prod": "PORT=18792 node server.cjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": ["openclaw", "bridge", "api", "virtual-office"],
+  "author": "Naling Team"
+}

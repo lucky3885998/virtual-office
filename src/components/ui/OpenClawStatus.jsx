@@ -41,7 +41,12 @@ export default function OpenClawStatus() {
     const init = async () => {
       const health = await openClawAdapter.getGatewayHealth()
       const loadedAgents = await openClawAdapter.getAgents()
-      setStatus(prev => ({ ...prev, ...health }))
+      setStatus(prev => ({
+        ...prev,
+        connected: health.connected,
+        version: health.version,
+        sessions: health.sessions
+      }))
       setAgents(loadedAgents)
       setLoading(false)
       setLastRefresh(new Date())
@@ -53,7 +58,11 @@ export default function OpenClawStatus() {
     const interval = setInterval(async () => {
       const health = await openClawAdapter.getGatewayHealth()
       const loadedAgents = await openClawAdapter.getAgents()
-      setStatus(prev => ({ ...prev, ...health }))
+      setStatus(prev => ({
+        ...prev,
+        connected: health.connected,
+        sessions: health.sessions
+      }))
       setAgents(loadedAgents)
       setLastRefresh(new Date())
     }, 10000)
