@@ -1,0 +1,136 @@
+# ============================================
+# 纳灵虚拟办公室 - Docker Compose 部署
+# ============================================
+# 
+# 快速部署:
+#   docker-compose up -d
+#
+# 绑定域名 (需要修改 DOMAIN):
+#   DOMAIN=office.example.com docker-compose -f docker-compose.yml up -d
+#
+# 带后端服务:
+#   docker-compose -f docker-compose.yml -f docker-compose.with-backend.yml up -d
+#
+
+services:
+  # ========================================
+  # 虚拟办公室 - 前端应用
+  # ========================================
+  virtual-office:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: naling-virtual-office
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:80"
+    environment:
+      - NODE_ENV=production
+      - APP_TITLE=${APP_TITLE:-纳灵虚拟办公室}
+      - APP_BASE_URL=${APP_BASE_URL:-/}
+      # 数据源配置 (可选)
+      - DATA_SOURCE=${DATA_SOURCE:-local}
+      - API_ENDPOINT=${API_ENDPOINT:-}
+      # 时区
+      - TZ=${TZ:-Asia/Shanghai}
+    volumes:
+      # 挂载自定义配置 (可选)
+      # - ./config/custom.js:/usr/share/nginx/html/config/custom.js:ro
+      # 挂载数据卷 (用于数据持久化)
+      - office-data:/usr/share/nginx/html/data
+    networks:
+      - office-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    labels:
+      - "com.naling.description=纳灵虚拟办公室 3D 可视化看板"
+      - "com.naling.version=${APP_VERSION:-latest}"
+      - "com.naling.maintainer=IT Team"
+
+  # ========================================
+  # 可选: 后端服务 (Node.js)
+  # ========================================
+  # office-backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: naling-office-backend
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3001:3000"
+  #   environment:
+  #     - NODE_ENV=production
+  #     - DATABASE_URL=${DATABASE_URL:-mongodb://mongo:27017/office}
+  #     - JWT_SECRET=${JWT_SECRET:-your-secret-key}
+  #     - TZ=${TZ:-Asia/Shanghai}
+  #   volumes:
+  #     - ./backend/logs:/app/logs
+  #   networks:
+  #     - office-network
+  #   depends_on:
+  #     - mongodb
+
+  # ========================================
+  # 可选: MongoDB 数据库
+  # ========================================
+  # mongodb:
+  #   image: mongo:7
+  #   container_name: naling-mongodb
+  #   restart: unless-stopped
+  #   ports:
+  #     - "27017:27017"
+  #   environment:
+  #     - MONGO_INITDB_DATABASE=office
+  #     - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER:-admin}
+  #     - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-password}
+  #   volumes:
+  #     - mongodb-data:/data/db
+  #   networks:
+  #     - office-network
+
+  # ========================================
+  # 可选: Redis 缓存
+  # ========================================
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: naling-redis
+  #   restart: unless-stopped
+  #   ports:
+  #     - "6379:6379"
+  #   command: redis-server --appendonly yes
+  #   volumes:
+  #     - redis-data:/data
+  #   networks:
+  #     - office-network
+
+# ============================================
+# 网络定义
+# ============================================
+networks:
+  office-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# ============================================
+# 数据卷
+# ============================================
+volumes:
+  office-data:
+    driver: local
+  # mongodb-data:
+  # mongodb-data:
+  # redis-data:

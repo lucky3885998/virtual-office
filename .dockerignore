@@ -1,0 +1,66 @@
+# ============================================
+# Docker Build 忽略文件
+# ============================================
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# 依赖
+node_modules
+npm-debug.log
+yarn-error.log
+
+# 构建产物 (使用多阶段构建，不需要)
+dist
+build
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+
+# 测试
+coverage
+*.test.js
+*.spec.js
+__tests__
+
+# 文档
+*.md
+!README.md
+docs
+DEPLOYMENT.md
+
+# Docker 文件 (不需要重复 COPY)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# 部署脚本
+deploy/
+deploy.sh
+deploy.bat
+
+# 环境变量 (不要包含敏感信息)
+.env
+.env.local
+.env.*.local
+
+# 临时文件
+*.log
+tmp/
+temp/
+*.tmp
+
+# 私有配置 (可能包含敏感信息)
+config/local
+secrets
+
+# 其他
+*.bak
+*.backup
+Thumbs.db
