@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { members, getAllReports } from '../data/members'
+import { members as configMembers, getAllReports } from '../data/members'
 
 // ========== LocalStorage 持久化 ==========
 const STORAGE_KEY = 'naling-virtual-office-data'
@@ -102,7 +102,13 @@ const savedData = loadFromStorage()
 
 const useOfficeStore = create((set, get) => ({
   // ========== 成员数据 ==========
-  members: savedData?.members || members,
+  // 初始为配置数据，运行时会被 OpenClaw 数据覆盖
+  members: savedData?.members || configMembers,
+  
+  // OpenClaw 数据源标志
+  openClawDataSource: false,
+  
+  // 当前用户角色
   
   // 当前用户角色
   currentRole: savedData?.currentRole || UserRole.ADMIN,
@@ -228,19 +234,31 @@ const useOfficeStore = create((set, get) => ({
     }
   }),
 
-  // ========== 从 OpenClaw 同步数据 ==========
+  // ========== 从 OpenClaw 完全替换成员数据 ==========
+  setMembersFromOpenClaw: (openClawMembers) => set({
+    members: openClawMembers,
+    openClawDataSource: true
+  }),
+
+  // ========== 从 OpenClaw 同步单个成员数据 ==========
   updateMemberFromOpenClaw: (memberId, openClawData) => set((state) => {
-    return {
-      members: state.members.map(m => 
-        m.id === memberId 
-          ? { 
-              ...m, 
-              status: openClawData.status || m.status,
-              openClawData: openClawData.openClawData 
-            }
-          : m
-      )
+    // 如果是 OpenClaw 数据源，直接更新对应成员
+    if (state.openClawDataSource) {
+      return {
+        members: state.members.map(m => 
+          m.id === memberId 
+            ? { 
+                ...m, 
+                status: openClawData.status || m.status,
+                statusColor: openClawData.statusColor || m.statusColor,
+                openClawData: openClawData.openClawData,
+                currentTask: openClawData.currentTask || m.currentTask
+              }
+            : m
+        )
+      }
     }
+    return state
   }),
   
   // ========== 添加报告 ==========
