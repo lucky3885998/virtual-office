@@ -18,6 +18,7 @@ import DataViz from './components/ui/DataViz'
 import MobileToolbar from './components/ui/MobileToolbar'
 import BottomSheetPanel from './components/ui/BottomSheetPanel'
 import MobilePreview from './components/ui/MobilePreview'
+import OpenClawStatus from './components/ui/OpenClawStatus'
 import useOfficeStore from './stores/officeStore'
 import { useMobile, useDevicePixelRatio } from './hooks/useMobile'
 
@@ -553,6 +554,13 @@ function App() {
         isOpen={useOfficeStore(state => state.showMobilePreview)}
         onClose={() => useOfficeStore.getState().toggleMobilePreview()}
       />
+
+      {/* OpenClaw 连接状态面板 */}
+      {useOfficeStore(state => state.showOpenClawStatus) && (
+        <OpenClawStatus
+          onClose={() => useOfficeStore.getState().toggleOpenClawStatus()}
+        />
+      )}
     </div>
   )
 }

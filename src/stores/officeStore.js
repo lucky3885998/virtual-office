@@ -152,6 +152,7 @@ const useOfficeStore = create((set, get) => ({
   // ========== 面板状态 ==========
   showTaskPanel: false,
   showMobilePreview: false,
+  showOpenClawStatus: false,
   
   // ========== 主题设置 ==========
   theme: savedData?.theme || 'dark', // 'dark' or 'light'
@@ -579,6 +580,8 @@ const useOfficeStore = create((set, get) => ({
   toggleDataViz: () => set((state) => ({ showDataViz: !state.showDataViz })),
 
   toggleMobilePreview: () => set((state) => ({ showMobilePreview: !state.showMobilePreview })),
+
+  toggleOpenClawStatus: () => set((state) => ({ showOpenClawStatus: !state.showOpenClawStatus })),
 
   setActiveChat: (chat) => set({ activeChat: chat }),
   

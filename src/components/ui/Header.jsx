@@ -487,6 +487,29 @@ function Header({ time, date }) {
         >
           📱
         </button>
+
+        {/* OpenClaw Status Toggle */}
+        <button
+          onClick={() => useOfficeStore.getState().toggleOpenClawStatus?.()}
+          title="OpenClaw 连接状态"
+          style={{
+            width: '36px',
+            height: '36px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: useOfficeStore.getState().showOpenClawStatus
+              ? 'rgba(139, 92, 246, 0.2)'
+              : 'transparent',
+            border: '1px solid var(--color-border)',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '16px',
+            transition: 'all 0.15s',
+            color: useOfficeStore.getState().showOpenClawStatus ? '#8b5cf6' : 'var(--color-text-tertiary)'
+          }}
+        >
+          🦞</button>
       </div>
       
       {/* Update Time */}
