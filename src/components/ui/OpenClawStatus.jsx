@@ -263,50 +263,88 @@ export default function OpenClawStatus() {
                 {loading ? '加载中...' : '暂无成员数据'}
               </div>
             ) : (
-              agents.slice(0, 4).map((agent, index) => (
+              agents.map((agent, index) => (
                 <div key={agent.id} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
                   padding: '10px 12px',
                   borderBottom: index < agents.length - 1 ? '1px solid var(--color-border)' : 'none'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
-                      background: agent.color || '#71717a'
-                    }} />
-                    <div>
-                      <div style={{ fontSize: '12px', fontWeight: 500 }}>
-                        {agent.name}
-                      </div>
-                      <div style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>
-                        {agent.title || agent.department}
+                  {/* 主行 */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: agent.isSubAgent || agent.channel ? '6px' : '0'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        background: agent.color || '#71717a',
+                        boxShadow: agent.status === 'working' ? `0 0 8px ${agent.color}` : 'none'
+                      }} />
+                      <div>
+                        <div style={{ fontSize: '12px', fontWeight: 500 }}>
+                          {agent.name}
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>
+                          {agent.subtitle || agent.title}
+                        </div>
                       </div>
                     </div>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      {['working', 'idle', 'busy'].map(s => (
+                        <button
+                          key={s}
+                          onClick={() => handleStatusChange(agent.id, s)}
+                          style={{
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '4px',
+                            border: 'none',
+                            background: agent.status === s ? (
+                              s === 'working' ? '#22c55e' :
+                              s === 'idle' ? '#eab308' : '#ef4444'
+                            ) : 'rgba(255,255,255,0.05)',
+                            cursor: 'pointer',
+                            fontSize: '10px'
+                          }}
+                        />
+                      ))}
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    {['working', 'idle', 'busy'].map(s => (
-                      <button
-                        key={s}
-                        onClick={() => handleStatusChange(agent.id, s)}
-                        style={{
-                          width: '20px',
-                          height: '20px',
-                          borderRadius: '4px',
-                          border: 'none',
-                          background: agent.status === s ? (
-                            s === 'working' ? '#22c55e' :
-                            s === 'idle' ? '#eab308' : '#ef4444'
-                          ) : 'rgba(255,255,255,0.05)',
-                          cursor: 'pointer',
-                          fontSize: '10px'
-                        }}
-                      />
-                    ))}
-                  </div>
+
+                  {/* 子代理详情 */}
+                  {agent.isSubAgent && (
+                    <div style={{
+                      display: 'flex',
+                      gap: '12px',
+                      fontSize: '10px',
+                      color: 'var(--color-text-tertiary)',
+                      paddingLeft: '18px'
+                    }}>
+                      <span>📋 {agent.totalTasks} 任务</span>
+                      <span style={{ color: '#22c55e' }}>✅ {agent.doneTasks} 成功</span>
+                      <span style={{ color: '#ef4444' }}>❌ {agent.failedTasks} 失败</span>
+                    </div>
+                  )}
+
+                  {/* 主会话详情 */}
+                  {agent.isMain && (
+                    <div style={{
+                      display: 'flex',
+                      gap: '8px',
+                      fontSize: '10px',
+                      color: 'var(--color-text-tertiary)',
+                      paddingLeft: '18px',
+                      flexWrap: 'wrap'
+                    }}>
+                      <span>💬 {agent.lastChannel || 'webchat'}</span>
+                      <span>📊 {(agent.totalTokens / 1000).toFixed(0)}K tokens</span>
+                      <span>💰 ${(agent.costUsd || 0).toFixed(2)}</span>
+                      {agent.skillsCount > 0 && <span>🛠️ {agent.skillsCount} 技能</span>}
+                    </div>
+                  )}
                 </div>
               ))
             )}

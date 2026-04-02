@@ -67,29 +67,85 @@ function toAgents(data) {
   
   const agents = [];
   
-  // 主会话
+  // 主会话 - OpenClaw 核心成员
   const main = data.sessionsArray.find(s => s.key === 'agent:main:main');
   if (main) {
     const isActive = (now - main.updatedAt) < active;
+    // 从 skillsSnapshot 提取已启用的技能
+    const enabledSkills = main.skillsSnapshot?.skills?.map(s => s.name) || [];
+    
     agents.push({
       id: 'openclaw-main',
       name: 'Lucky-COO',
-      title: main.model || 'AI 首席运营官',
+      title: 'AI 首席运营官',
+      subtitle: main.model || 'MiniMax-M2.7',
       status: isActive ? 'working' : 'idle',
       department: 'COO',
       color: isActive ? '#22c55e' : '#eab308',
-      updatedAt: main.updatedAt,
+      // 详细信息
       model: main.model,
-      totalTokens: main.totalTokens,
-      lastChannel: main.lastChannel,
-      isMain: true
+      totalTokens: main.totalTokens || 0,
+      inputTokens: main.inputTokens || 0,
+      outputTokens: main.outputTokens || 0,
+      lastChannel: main.lastChannel || 'webchat',
+      updatedAt: main.updatedAt,
+      startedAt: main.startedAt,
+      skills: enabledSkills,
+      skillsCount: enabledSkills.length,
+      contextTokens: main.contextTokens || 0,
+      cacheRead: main.cacheRead || 0,
+      costUsd: main.estimatedCostUsd || 0,
+      isMain: true,
+      statusText: main.status || 'running'
     });
   }
   
-  // 按渠道分组
+  // 子 Agent 会话 - 任务执行记录 (OpenAI Codex 等)
+  const subAgents = data.sessionsArray.filter(s => s.key.startsWith('agent:main:openai:'));
+  
+  // 按状态分组统计
+  const doneCount = subAgents.filter(s => s.status === 'done').length;
+  const failedCount = subAgents.filter(s => s.status === 'failed').length;
+  const recentSubs = subAgents
+    .filter(s => (now - s.updatedAt) < recent)
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, 5); // 最近 5 个任务
+  
+  // OpenAI 子任务汇总
+  if (subAgents.length > 0) {
+    agents.push({
+      id: 'subagents-openai',
+      name: 'AI 任务助手',
+      title: `OpenAI Codex 任务`,
+      subtitle: `${subAgents.length} 个任务 · ${doneCount} 成功 · ${failedCount} 失败`,
+      status: subAgents.some(s => s.status === 'done' && (now - s.updatedAt) < active) ? 'working' : 
+             recentSubs.length > 0 ? 'idle' : 'offline',
+      department: 'IT',
+      color: '#10b981',
+      // 汇总数据
+      totalTasks: subAgents.length,
+      doneTasks: doneCount,
+      failedTasks: failedCount,
+      totalRuntimeMs: subAgents.reduce((sum, s) => sum + (s.runtimeMs || 0), 0),
+      latestTasks: recentSubs.map(s => ({
+        id: s.sessionId,
+        status: s.status,
+        runtimeMs: s.runtimeMs,
+        updatedAt: s.updatedAt,
+        endedAt: s.endedAt,
+        startedAt: s.startedAt,
+        skills: s.skillsSnapshot?.skills?.map(sk => sk.name) || []
+      })),
+      updatedAt: subAgents[0]?.updatedAt || 0,
+      isSubAgent: true
+    });
+  }
+  
+  // 按渠道分组 (其他渠道)
   const channels = {};
   data.sessionsArray.forEach(s => {
     if (s.key === 'agent:main:main') return;
+    if (s.key.startsWith('agent:main:openai:')) return; // 已处理
     const parts = s.key.split(':');
     const ch = parts[2] || 'other';
     if (!channels[ch]) channels[ch] = { sessions: [], latest: 0 };
@@ -97,9 +153,9 @@ function toAgents(data) {
     channels[ch].latest = Math.max(channels[ch].latest, s.updatedAt);
   });
   
-  const chNames = { openai: 'Web Chat', telegram: 'Telegram', discord: 'Discord', 
+  const chNames = { telegram: 'Telegram', discord: 'Discord', 
                     whatsapp: 'WhatsApp', signal: 'Signal', webchat: 'Web 聊天' };
-  const chColors = { openai: '#10b981', telegram: '#0088cc', discord: '#5865f2',
+  const chColors = { telegram: '#0088cc', discord: '#5865f2',
                       whatsapp: '#25d366', signal: '#3ecf8e', webchat: '#8b5cf6' };
   
   Object.entries(channels).forEach(([ch, grp]) => {
@@ -107,8 +163,9 @@ function toAgents(data) {
     const isRecent = (now - grp.latest) < recent;
     agents.push({
       id: `channel-${ch}`,
-      name: `成员-${chNames[ch] || ch}`,
-      title: `${grp.sessions.length} 会话`,
+      name: `${chNames[ch] || ch} 渠道`,
+      title: `${chNames[ch] || ch}`,
+      subtitle: `${grp.sessions.length} 个会话`,
       status: isActive ? 'working' : isRecent ? 'idle' : 'offline',
       department: 'COO',
       color: chColors[ch] || '#71717a',
@@ -125,14 +182,24 @@ function toStats(data) {
   if (!data?.sessionsArray) return { totalSessions: 0, activeSessions: 0, totalTokens: 0, channels: [] };
   const now = Date.now();
   const active = 30 * 60 * 1000;
+  const main = data.sessionsArray.find(s => s.key === 'agent:main:main');
   const activeSessions = data.sessionsArray.filter(s => (now - s.updatedAt) < active);
-  const tokens = data.sessionsArray.reduce((sum, s) => sum + (s.totalTokens || 0), 0);
+  const totalTokens = data.sessionsArray.reduce((sum, s) => sum + (s.totalTokens || 0), 0);
   const channelSet = new Set(data.sessionsArray.map(s => s.key.split(':')[2]).filter(Boolean));
+  const subAgents = data.sessionsArray.filter(s => s.key.startsWith('agent:main:openai:'));
+  
   return {
     totalSessions: data.sessionsArray.length,
     activeSessions: activeSessions.length,
-    totalTokens: tokens,
-    channels: Array.from(channelSet)
+    mainSessionActive: main ? (now - main.updatedAt) < active : false,
+    totalTokens,
+    totalCostUsd: data.sessionsArray.reduce((sum, s) => sum + (s.estimatedCostUsd || 0), 0),
+    channels: Array.from(channelSet),
+    subAgentTasks: {
+      total: subAgents.length,
+      done: subAgents.filter(s => s.status === 'done').length,
+      failed: subAgents.filter(s => s.status === 'failed').length
+    }
   };
 }
 
@@ -165,11 +232,13 @@ const server = http.createServer((req, res) => {
 
   // 健康检查
   if (pathname === '/health' || pathname === '/') {
+    const main = sessionsData?.sessionsArray?.find(s => s.key === 'agent:main:main');
     return send(200, {
       status: 'ok',
       version: '1.0.0',
       sessionsPath: SESSIONS_PATH,
       sessionsCount: sessionsData?.sessionsArray?.length || 0,
+      mainSession: main ? { status: main.status, updatedAt: main.updatedAt } : null,
       uptime: Math.floor(process.uptime())
     });
   }
@@ -177,7 +246,8 @@ const server = http.createServer((req, res) => {
   // 刷新数据
   if (pathname === '/api/refresh') {
     sessionsData = loadSessions();
-    return send(200, { success: true, count: sessionsData.sessionsArray?.length || 0 });
+    const stats = toStats(sessionsData);
+    return send(200, { success: true, stats });
   }
 
   // 成员列表
