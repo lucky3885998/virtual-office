@@ -227,6 +227,21 @@ const useOfficeStore = create((set, get) => ({
       )
     }
   }),
+
+  // ========== 从 OpenClaw 同步数据 ==========
+  updateMemberFromOpenClaw: (memberId, openClawData) => set((state) => {
+    return {
+      members: state.members.map(m => 
+        m.id === memberId 
+          ? { 
+              ...m, 
+              status: openClawData.status || m.status,
+              openClawData: openClawData.openClawData 
+            }
+          : m
+      )
+    }
+  }),
   
   // ========== 添加报告 ==========
   addReport: (memberId, report) => set((state) => {

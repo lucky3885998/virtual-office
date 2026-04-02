@@ -20,6 +20,7 @@ import BottomSheetPanel from './components/ui/BottomSheetPanel'
 import MobilePreview from './components/ui/MobilePreview'
 import OpenClawStatus from './components/ui/OpenClawStatus'
 import useOfficeStore from './stores/officeStore'
+import { useOpenClawSync } from './hooks/useOpenClawSync'
 import { useMobile, useDevicePixelRatio } from './hooks/useMobile'
 
 function CameraController() {
@@ -72,6 +73,9 @@ function CameraController() {
 }
 
 function App() {
+  // OpenClaw 数据同步（融合真实数据到虚构角色）
+  useOpenClawSync()
+
   // 移动端检测
   const { isMobile } = useMobile()
   const deviceDpr = useDevicePixelRatio()
