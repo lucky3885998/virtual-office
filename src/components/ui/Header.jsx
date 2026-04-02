@@ -463,6 +463,30 @@ function Header({ time, date }) {
             </button>
           </>
         )}
+
+        {/* Mobile Preview Toggle */}
+        <button
+          onClick={() => useOfficeStore.getState().toggleMobilePreview?.()}
+          title="移动端预览 (调试)"
+          style={{
+            width: '36px',
+            height: '36px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: useOfficeStore.getState().showMobilePreview
+              ? 'rgba(16, 185, 129, 0.2)'
+              : 'transparent',
+            border: '1px solid var(--color-border)',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '16px',
+            transition: 'all 0.15s',
+            color: useOfficeStore.getState().showMobilePreview ? '#10b981' : 'var(--color-text-tertiary)'
+          }}
+        >
+          📱
+        </button>
       </div>
       
       {/* Update Time */}

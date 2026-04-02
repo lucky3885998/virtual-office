@@ -17,6 +17,7 @@ import Collaboration from './components/ui/Collaboration'
 import DataViz from './components/ui/DataViz'
 import MobileToolbar from './components/ui/MobileToolbar'
 import BottomSheetPanel from './components/ui/BottomSheetPanel'
+import MobilePreview from './components/ui/MobilePreview'
 import useOfficeStore from './stores/officeStore'
 import { useMobile, useDevicePixelRatio } from './hooks/useMobile'
 
@@ -546,6 +547,12 @@ function App() {
       
       {/* 移动端底部工具栏 */}
       <MobileToolbar />
+
+      {/* 移动端预览调试窗口 */}
+      <MobilePreview 
+        isOpen={useOfficeStore(state => state.showMobilePreview)}
+        onClose={() => useOfficeStore.getState().toggleMobilePreview()}
+      />
     </div>
   )
 }
